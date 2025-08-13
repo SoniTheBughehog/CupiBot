@@ -1,7 +1,9 @@
 require('dotenv').config()
 const fs = require('fs')
 const path = require('path')
-const { Client, GatewayIntentBits, Collection } = require('discord.js')
+const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js')
+const cron = require('node-cron')
+const config = require('./config.json')
 
 const client = new Client({
   intents: [
@@ -12,8 +14,7 @@ const client = new Client({
 })
 
 client.commands = new Collection()
-
-const prefix = require('./config.json').prefix
+const prefix = config.prefix
 
 // Charger les commandes
 const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(file => file.endsWith('.js'))
@@ -22,23 +23,50 @@ for (const file of commandFiles) {
   client.commands.set(command.name, command)
 }
 
+// Fonction pour lire les callnotes
+function readCalls() {
+  const filePath = path.join(__dirname, 'data', 'callnote.json')
+  if (!fs.existsSync(filePath)) return []
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'))
+}
+
 // Événement ready
 client.once('ready', () => {
   console.log(`Connecté en tant que ${client.user.tag}`)
+
+  // Envoi automatique tous les jours à 22h heure Paris
+  cron.schedule('0 22 * * *', () => {
+    if (!config.reminderChannelId) return
+
+    const calls = readCalls()
+    const channel = client.channels.cache.get(config.reminderChannelId)
+    if (!channel) return
+
+    if (calls.length === 0) {
+      channel.send('📭 Aucun sujet dans la liste.')
+      return
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor('#2196f3')
+      .setTitle('📋 Liste des sujets pour l’appel')
+      .setDescription(calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n'))
+      .setTimestamp()
+
+    channel.send({ embeds: [embed] })
+  }, { timezone: 'Europe/Paris' })
 })
 
-// Événement messageCreate (pour gérer les commandes et meow automatique)
+// Événement messageCreate (commandes + meow)
 client.on('messageCreate', message => {
   if (message.author.bot) return
 
-  // Répondre "meow" si message contient "meow" ou "miaou"
   const text = message.content.toLowerCase()
   if (text.includes('meow') || text.includes('miaou')) {
     message.channel.send('meow')
     return
   }
 
-  // Commandes avec prefix
   if (!message.content.startsWith(prefix)) return
 
   const args = message.content.slice(prefix.length).trim().split(/ +/)
