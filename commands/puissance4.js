@@ -6,7 +6,6 @@ const EMPTY = '⚪'
 const PLAYER1 = '🔴'
 const PLAYER2 = '🟡'
 
-// Parties actives par salon
 const games = {}
 
 function createBoard() {
@@ -18,33 +17,23 @@ function renderBoard(board) {
 }
 
 function checkWin(board, piece) {
-  // horizontal
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c <= COLS - 4; c++) {
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c <= COLS - 4; c++)
       if (board[r][c] === piece && board[r][c+1] === piece && board[r][c+2] === piece && board[r][c+3] === piece) return true
-    }
-  }
-  // vertical
-  for (let c = 0; c < COLS; c++) {
-    for (let r = 0; r <= ROWS - 4; r++) {
+  for (let c = 0; c < COLS; c++)
+    for (let r = 0; r <= ROWS - 4; r++)
       if (board[r][c] === piece && board[r+1][c] === piece && board[r+2][c] === piece && board[r+3][c] === piece) return true
-    }
-  }
-  // diagonales
-  for (let r = 0; r <= ROWS - 4; r++) {
-    for (let c = 0; c <= COLS - 4; c++) {
+  for (let r = 0; r <= ROWS - 4; r++)
+    for (let c = 0; c <= COLS - 4; c++)
       if (board[r][c] === piece && board[r+1][c+1] === piece && board[r+2][c+2] === piece && board[r+3][c+3] === piece) return true
-    }
-    for (let c = 3; c < COLS; c++) {
-      if (board[r][c] === piece && board[r+1][c-1] === piece && board[r+2][c-2] === piece && board[r+3][c-3] === piece) return true
-    }
-  }
+    for (let c2 = 3; c2 < COLS; c2++)
+      if (board[r][c2] === piece && board[r+1][c2-1] === piece && board[r+2][c2-2] === piece && board[r+3][c2-3] === piece) return true
   return false
 }
 
 module.exports = {
   name: 'puissance4',
-  description: 'Joue à Puissance 4 ! Usage: start | <colonne> | reset',
+  description: 'Joue à Puissance 4 ! Usage: start | <colonne> | stop | reset',
   execute(message, args) {
     const channelId = message.channel.id
     if (!games[channelId]) games[channelId] = { board: createBoard(), turn: 1, players: [] }
@@ -53,27 +42,31 @@ module.exports = {
     const sub = args[0]?.toLowerCase()
 
     if (sub === 'start') {
-      if (game.players.length < 2) game.players = [message.author.id]
-      message.channel.send('🎮 Partie commencée ! Deux joueurs requis. Le premier joueur à jouer tape `!puissance4 <colonne>` (1-7).')
+      if (game.players.length === 0) game.players.push(message.author.id)
+      message.channel.send('🎮 Partie commencée ! Deux joueurs requis. Premier joueur tape `!puissance4 <colonne>` (1-7).')
+      return
+    }
+
+    if (sub === 'stop') {
+      if (!game.players.length) return message.channel.send('❌ Pas de partie en cours.')
+      game.players = []
+      message.channel.send('🛑 Partie arrêtée. Plateau conservé.')
       return
     }
 
     if (sub === 'reset') {
       games[channelId] = { board: createBoard(), turn: 1, players: [] }
-      message.channel.send('♻️ Partie réinitialisée.')
+      message.channel.send('♻️ Plateau réinitialisé. Partie effacée.')
       return
     }
 
-    // Ajouter le second joueur si pas déjà présent
+    // Ajouter second joueur si nécessaire
     if (!game.players.includes(message.author.id) && game.players.length < 2) game.players.push(message.author.id)
 
-    // Vérifie si c’est le bon joueur
+    // Vérifie le tour
     const currentPlayerId = game.players[game.turn - 1]
-    if (message.author.id !== currentPlayerId) {
-      return message.channel.send('⏳ Ce n’est pas ton tour !')
-    }
+    if (message.author.id !== currentPlayerId) return message.channel.send('⏳ Ce n’est pas ton tour !')
 
-    // Vérifie la colonne
     const col = parseInt(args[0]) - 1
     if (isNaN(col) || col < 0 || col >= COLS) return message.channel.send('❌ Colonne invalide (1-7).')
 
@@ -88,11 +81,11 @@ module.exports = {
     }
     if (!placed) return message.channel.send('❌ Cette colonne est pleine !')
 
-    // Affiche le plateau
+    // Embed plateau
     const embed = new EmbedBuilder()
-      .setColor('#ff5722')
       .setTitle('Puissance 4')
       .setDescription(renderBoard(game.board))
+      .setColor(game.turn === 1 ? '#ff0000' : '#ffff00')
       .setFooter({ text: `Tour de ${message.author.username}` })
       .setTimestamp()
     message.channel.send({ embeds: [embed] })
@@ -112,7 +105,7 @@ module.exports = {
       return
     }
 
-    // Change de joueur
+    // Changement de joueur
     game.turn = game.turn === 1 ? 2 : 1
   }
 }
