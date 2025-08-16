@@ -17,17 +17,22 @@ function renderBoard(board) {
 }
 
 function checkWin(board, piece) {
+  // Horizontal
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c <= COLS - 4; c++)
       if (board[r][c] === piece && board[r][c+1] === piece && board[r][c+2] === piece && board[r][c+3] === piece) return true
+  // Vertical
   for (let c = 0; c < COLS; c++)
     for (let r = 0; r <= ROWS - 4; r++)
       if (board[r][c] === piece && board[r+1][c] === piece && board[r+2][c] === piece && board[r+3][c] === piece) return true
+  // Diagonale descendante
   for (let r = 0; r <= ROWS - 4; r++)
     for (let c = 0; c <= COLS - 4; c++)
       if (board[r][c] === piece && board[r+1][c+1] === piece && board[r+2][c+2] === piece && board[r+3][c+3] === piece) return true
-    for (let c2 = 3; c2 < COLS; c2++)
-      if (board[r][c2] === piece && board[r+1][c2-1] === piece && board[r+2][c2-2] === piece && board[r+3][c2-3] === piece) return true
+  // Diagonale montante
+  for (let r = 0; r <= ROWS - 4; r++)
+    for (let c = 3; c < COLS; c++)
+      if (board[r][c] === piece && board[r+1][c-1] === piece && board[r+2][c-2] === piece && board[r+3][c-3] === piece) return true
   return false
 }
 
@@ -93,14 +98,33 @@ module.exports = {
     // Vérifie victoire
     const piece = game.turn === 1 ? PLAYER1 : PLAYER2
     if (checkWin(game.board, piece)) {
-      message.channel.send(`🏆 ${message.author.username} a gagné !`)
+      const winner = message.author.username
+      const playerNames = game.players.map(id => {
+        const user = message.guild.members.cache.get(id)
+        return user ? user.user.username : 'Joueur'
+      })
+      const victoryEmbed = new EmbedBuilder()
+        .setTitle('🏆 Victoire !')
+        .setDescription(`${winner} a gagné la partie !\n\n${renderBoard(game.board)}\n\nParticipants : ${playerNames.join(' vs ')}`)
+        .setColor('#00ff00')
+        .setTimestamp()
+      message.channel.send({ embeds: [victoryEmbed] })
       games[channelId] = { board: createBoard(), turn: 1, players: [] }
       return
     }
 
     // Vérifie égalité
     if (game.board.flat().every(cell => cell !== EMPTY)) {
-      message.channel.send('🤝 Égalité !')
+      const playerNames = game.players.map(id => {
+        const user = message.guild.members.cache.get(id)
+        return user ? user.user.username : 'Joueur'
+      })
+      const drawEmbed = new EmbedBuilder()
+        .setTitle('🤝 Égalité !')
+        .setDescription(`Le plateau est plein, personne n'a gagné.\n\n${renderBoard(game.board)}\n\nParticipants : ${playerNames.join(' vs ')}`)
+        .setColor('#808080')
+        .setTimestamp()
+      message.channel.send({ embeds: [drawEmbed] })
       games[channelId] = { board: createBoard(), turn: 1, players: [] }
       return
     }

@@ -1,9 +1,10 @@
-require('dotenv').config()
-const fs = require('fs')
-const path = require('path')
-const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js')
-const cron = require('node-cron')
-const config = require('./config.json')
+import dotenv from 'dotenv'
+dotenv.config()
+import fs from 'fs'
+import path from 'path'
+import { Client, GatewayIntentBits, Collection, EmbedBuilder } from 'discord.js'
+import cron from 'node-cron'
+import config from './config.json' assert { type: 'json' }
 
 const client = new Client({
   intents: [
@@ -111,13 +112,18 @@ function startBot() {
       retryCount = 0
     })
     .catch(err => {
-      console.error('Erreur login', err)
-      retryCount++
-      if (retryCount <= maxRetries) {
-        console.log(`Retry ${retryCount} dans 5 secondes...`)
-        setTimeout(startBot, 5000)
+      if (err.code === 'EAI_AGAIN' || (err.message && err.message.includes('getaddrinfo EAI_AGAIN'))) {
+        console.error('Erreur réseau : Impossible de joindre Discord. Vérifiez votre connexion internet ou les DNS.')
+        retryCount++
+        if (retryCount <= maxRetries) {
+          console.log(`Retry ${retryCount} dans 2 secondes...`)
+          setTimeout(startBot, 2000)
+        } else {
+          console.error('Nombre maximum de retries atteint, arrêt du bot.')
+          process.exit(1)
+        }
       } else {
-        console.error('Nombre maximum de retries atteint, arrêt du bot.')
+        console.error('Erreur login', err)
         process.exit(1)
       }
     })
