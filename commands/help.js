@@ -38,6 +38,7 @@ module.exports = {
     const p4Help = [
       '`!puissance4 start` — Commencer une partie',
       '`!puissance4 <1-7>` — Placer un pion dans la colonne',
+      '`!puissance4 stop` — Arrêter la partie en cours',
       '`!puissance4 reset` — Réinitialiser la partie'
     ].join('\n')
 
