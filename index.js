@@ -102,4 +102,27 @@ client.on('messageCreate', message => {
   }
 })
 
-client.login(process.env.DISCORD_TOKEN)
+let retryCount = 0
+const maxRetries = 5
+
+function startBot() {
+  client.login(process.env.DISCORD_TOKEN)
+    .then(() => {
+      retryCount = 0
+    })
+    .catch(err => {
+      console.error('Erreur login', err)
+      retryCount++
+      if (retryCount <= maxRetries) {
+        console.log(`Retry ${retryCount} dans 5 secondes...`)
+        setTimeout(startBot, 5000)
+      } else {
+        console.error('Nombre maximum de retries atteint, arrêt du bot.')
+        process.exit(1)
+      }
+    })
+}
+
+startBot()
+
+
