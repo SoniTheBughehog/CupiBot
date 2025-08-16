@@ -1,10 +1,9 @@
-import dotenv from 'dotenv'
-dotenv.config()
-import fs from 'fs'
-import path from 'path'
-import { Client, GatewayIntentBits, Collection, EmbedBuilder } from 'discord.js'
-import cron from 'node-cron'
-import config from './config.json' assert { type: 'json' }
+require('dotenv').config()
+const fs = require('fs')
+const path = require('path')
+const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js')
+const cron = require('node-cron')
+const config = require('./config.json')
 
 const client = new Client({
   intents: [
