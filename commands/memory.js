@@ -4,43 +4,77 @@ const { EmbedBuilder } = require('discord.js')
 
 const filePath = path.join(__dirname, '..', 'data', 'memory.json')
 
-function readData() {
+function readMemory() {
   if (!fs.existsSync(filePath)) return {}
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
-function saveData(data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
+function saveMemory(memories) {
+  fs.writeFileSync(filePath, JSON.stringify(memories, null, 2))
 }
 
 module.exports = {
   name: 'memory',
-  description: 'Ajouter ou lister vos souvenirs',
+  description: 'Gérer tes souvenirs personnels',
   execute(message, args) {
+    const memories = readMemory()
     const userId = message.author.id
-    const data = readData()
-    if (!data[userId]) data[userId] = []
+
+    if (!memories[userId]) memories[userId] = []
 
     if (args.length === 0) {
-      // Liste des souvenirs
-      if (data[userId].length === 0) return message.channel.send('📭 Tu n’as aucun souvenir.')
+      return message.channel.send('Usage: !memory add <texte> | list | del <num>')
+    }
+
+    const subcommand = args.shift().toLowerCase()
+
+    if (subcommand === 'add') {
+      const text = args.join(' ')
+      if (!text) return message.channel.send('❌ Merci de préciser un souvenir !')
+      memories[userId].push(text)
+      saveMemory(memories)
+
       const embed = new EmbedBuilder()
-        .setColor('#ff9800')
-        .setTitle(`📝 Souvenirs de ${message.author.username}`)
-        .setDescription(data[userId].map((m, i) => `**${i+1}.** ${m}`).join('\n'))
+        .setTitle('💾 Souvenir ajouté')
+        .setDescription(`"${text}"`)
+        .setColor('#2ecc71')
+        .setFooter({ text: message.author.tag })
         .setTimestamp()
+
       return message.channel.send({ embeds: [embed] })
     }
 
-    const sub = args.shift().toLowerCase()
-    if (sub === 'add') {
-      const text = args.join(' ')
-      if (!text) return message.channel.send('Usage: !memory add <texte>')
-      data[userId].push(text)
-      saveData(data)
-      return message.channel.send('✅ Souvenir ajouté !')
-    } else {
-      return message.channel.send('Commande inconnue. Usage: add <texte> | list')
+    if (subcommand === 'list') {
+      const list = memories[userId]
+      if (list.length === 0) return message.channel.send('📭 Aucun souvenir enregistré.')
+
+      const embed = new EmbedBuilder()
+        .setTitle(`📚 Souvenirs de ${message.author.username}`)
+        .setDescription(list.map((m, i) => `**${i + 1}.** ${m}`).join('\n'))
+        .setColor('#3498db')
+        .setTimestamp()
+
+      return message.channel.send({ embeds: [embed] })
     }
+
+    if (subcommand === 'del') {
+      const num = parseInt(args[0])
+      if (isNaN(num) || num < 1 || num > memories[userId].length) {
+        return message.channel.send('❌ Numéro invalide.')
+      }
+      const removed = memories[userId].splice(num - 1, 1)
+      saveMemory(memories)
+
+      const embed = new EmbedBuilder()
+        .setTitle('🗑️ Souvenir supprimé')
+        .setDescription(`"${removed[0]}"`)
+        .setColor('#e74c3c')
+        .setFooter({ text: message.author.tag })
+        .setTimestamp()
+
+      return message.channel.send({ embeds: [embed] })
+    }
+
+    return message.channel.send('❌ Commande inconnue. Usage: add | list | del')
   }
 }
