@@ -13,27 +13,33 @@ const client = new Client({
   ]
 });
 
-client.commands = new Collection();
 const prefix = config.prefix || '!';
+client.commands = new Collection();
 
 // --- Utils JSON ---
-function utilsReadJSON(file) {
+function readJSON(file) {
   try {
     if (!fs.existsSync(file)) return null;
-    const data = fs.readFileSync(file, 'utf8');
-    return JSON.parse(data);
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (err) {
     console.error(`Erreur lecture JSON (${file}):`, err);
     return null;
   }
 }
 
-// --- Charger les commandes ---
+function writeJSON(file, data) {
+  try {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error(`Erreur écriture JSON (${file}):`, err);
+  }
+}
+
+// --- Import commandes ---
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
 for (const file of commandFiles) {
   const command = require(path.join(commandsPath, file));
-const { getCalendarEmbed } = require('./calendar.js');
   if (command?.name && typeof command.execute === 'function') {
     client.commands.set(command.name, command);
   } else {
@@ -41,74 +47,68 @@ const { getCalendarEmbed } = require('./calendar.js');
   }
 }
 
-// --- Fonctions pour cron ---
-async function sendCallnotes() {
-  if (!config.reminderChannelId) return;
-  const calls = utilsReadJSON(path.join(__dirname, 'data', 'callnote.json'));
-  if (!Array.isArray(calls) || calls.length === 0) return;
+// --- Import pour calendar ---
+const { getCalendarEmbed } = require('./commands/calendar.js');
 
+// --- Fonctions utilitaires pour envoyer embeds ---
+async function sendEmbed(channelId, embed) {
+  if (!channelId) return;
   try {
-    const channel = await client.channels.fetch(config.reminderChannelId);
+    const channel = await client.channels.fetch(channelId);
     if (!channel) return;
-
-    const embed = new EmbedBuilder()
-      .setColor('#2196f3')
-      .setTitle('📋 Liste des sujets pour l’appel')
-      .setDescription(
-        calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n')
-      )
-      .setTimestamp();
-
     await channel.send({ embeds: [embed] });
   } catch (err) {
-    console.error('Erreur en envoyant les callnotes:', err);
+    console.error(`Erreur en envoyant un embed sur le channel ${channelId}:`, err);
   }
 }
 
+// --- Crons ---
+async function sendCallnotes() {
+  const calls = readJSON(path.join(__dirname, 'data', 'callnote.json'));
+  if (!Array.isArray(calls) || calls.length === 0) return;
+
+  const embed = new EmbedBuilder()
+    .setColor('#2196f3')
+    .setTitle('📋 Liste des sujets pour l’appel')
+    .setDescription(calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n'))
+    .setTimestamp();
+
+  await sendEmbed(config.reminderChannelId, embed);
+}
+
 async function sendNotes() {
-  const data = utilsReadJSON(path.join(__dirname, 'data', 'note.json'));
+  const data = readJSON(path.join(__dirname, 'data', 'note.json'));
   if (!data || typeof data !== 'object') return;
 
   for (const [userId, userData] of Object.entries(data)) {
     if (!userData.channelId || !Array.isArray(userData.notes) || userData.notes.length === 0) continue;
 
-    try {
-      const channel = await client.channels.fetch(userData.channelId);
-      const user = await client.users.fetch(userId);
-      if (!channel) continue;
+    const userNotes = userData.notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n');
+    const embed = new EmbedBuilder()
+      .setColor('#9c27b0')
+      .setTitle(`📋 Notes de ${client.users.cache.get(userId)?.username || 'Utilisateur'}`)
+      .setDescription(userNotes)
+      .setTimestamp();
 
-      const embed = new EmbedBuilder()
-        .setColor('#9c27b0')
-        .setTitle(`📋 Notes de ${user?.username || 'Utilisateur'}`)
-        .setDescription(
-          userData.notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n')
-        );
-
-      await channel.send({ embeds: [embed] });
-    } catch (err) {
-      console.error(`Erreur pour user ${userId}:`, err);
-    }
+    await sendEmbed(userData.channelId, embed);
   }
 }
 
 async function sendCalendar() {
-  const calendar = utilsReadJSON(path.join(__dirname, 'data', 'calendar.json'));
+  const calendar = readJSON(path.join(__dirname, 'data', 'calendar.json'));
   if (!Array.isArray(calendar)) return;
 
-  try {
-    const channel = await client.channels.fetch(config.reminderChannelId);
-    if (!channel) return;
-
-    const embed = getCalendarEmbed(calendar);
-    await channel.send({ embeds: [embed] });
-  } catch (err) {
-    console.error('Erreur en envoyant le calendrier:', err);
-  }
+  const embed = getCalendarEmbed(calendar);
+  await sendEmbed(config.reminderChannelId, embed);
 }
 
 // --- Ready ---
 client.once('ready', () => {
   console.log(`Connecté en tant que ${client.user.tag}`);
+
+  if (!config.reminderChannelId) {
+    console.warn('⚠️ reminderChannelId non configuré dans config.json. Les cron ne fonctionneront pas.');
+  }
 
   cron.schedule('0 22 * * *', sendCallnotes, { timezone: 'Europe/Paris' });
   cron.schedule('0 18 * * *', sendNotes, { timezone: 'Europe/Paris' });
@@ -119,7 +119,8 @@ client.once('ready', () => {
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
-  if (/\b(meow|miaou)\b/i.test(message.content)) {
+  const content = message.content.trim().toLowerCase();
+  if (/\b(meow|miaou)\b/i.test(content)) {
     await message.channel.send('meow');
     return;
   }
@@ -146,7 +147,10 @@ const maxRetries = 5;
 
 function startBot() {
   client.login(process.env.DISCORD_TOKEN)
-    .then(() => { retryCount = 0; })
+    .then(() => {
+      retryCount = 0;
+      console.log('✅ Bot connecté avec succès');
+    })
     .catch(err => {
       if (err.code === 'EAI_AGAIN' || (err.message && err.message.includes('getaddrinfo EAI_AGAIN'))) {
         console.error('Erreur réseau : Impossible de joindre Discord.');
