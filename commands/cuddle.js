@@ -7,9 +7,9 @@ const gifFile = path.join(__dirname, '..', 'data', 'gifhug.json');
 function getRandomGif() {
   if (!fs.existsSync(gifFile)) return null;
   try {
-    const gifs = JSON.parse(fs.readFileSync(gifFile, 'utf8'));
-    if (!Array.isArray(gifs) || gifs.length === 0) return null;
-    return gifs[Math.floor(Math.random() * gifs.length)];
+    const data = JSON.parse(fs.readFileSync(gifFile, 'utf8'));
+    if (!Array.isArray(data.gifs) || data.gifs.length === 0) return null;
+    return data.gifs[Math.floor(Math.random() * data.gifs.length)];
   } catch {
     return null;
   }
@@ -36,7 +36,7 @@ module.exports = {
       .setDescription(`${message.author} envoie un gros câlin à ${user}!`)
       .setTimestamp();
 
-    if (gif) embed.setImage(gif);
+    if (gif?.url) embed.setImage(gif.url);
 
     message.channel.send({ content: `${user}`, embeds: [embed] });
   }
