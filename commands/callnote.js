@@ -17,26 +17,58 @@ function saveCalls(calls) {
   fs.writeFileSync(filePath, JSON.stringify(calls, null, 2));
 }
 
+function createEmbed({ title, description, color = 0x9c27b0, fields = [], footer, timestamp = true }) {
+  const embed = new EmbedBuilder().setColor(color).setTitle(title);
+  if (description) embed.setDescription(description);
+  if (fields.length) embed.addFields(fields);
+  if (footer) embed.setFooter({ text: footer });
+  if (timestamp) embed.setTimestamp();
+  return embed;
+}
+
 function usageEmbed(prefix, user) {
-  return new EmbedBuilder()
-    .setColor(0xff9800)
-    .setTitle('⚠️ Utilisation de la commande')
-    .setDescription([
+  return createEmbed({
+    title: '⚠️ Utilisation de la commande',
+    color: 0xff9800,
+    description: [
       `**${prefix}callnote add <qui> <sujet>** → Ajouter un sujet`,
       `**${prefix}callnote list** → Voir la liste`,
       `**${prefix}callnote del <num>** → Supprimer un sujet`
-    ].join('\n'))
-    .setFooter({ text: `Demandé par ${user.tag}` })
-    .setTimestamp();
+    ].join('\n'),
+    footer: `Demandé par ${user.tag}`
+  });
 }
 
 function errorEmbed(title, description, user) {
-  return new EmbedBuilder()
-    .setColor(0xf44336)
-    .setTitle(title)
-    .setDescription(description)
-    .setFooter({ text: `Demandé par ${user.tag}` })
-    .setTimestamp();
+  return createEmbed({ title, description, color: 0xf44336, footer: `Demandé par ${user.tag}` });
+}
+
+function listCallsEmbed(calls, user) {
+  if (!calls.length) {
+    return createEmbed({
+      title: '📭 Liste vide',
+      description: 'Aucun sujet n’a encore été ajouté.',
+      color: 0x9e9e9e,
+      footer: `Demandé par ${user.tag}`
+    });
+  }
+
+  if (calls.length === 1) {
+    const c = calls[0];
+    return createEmbed({
+      title: `📞 Sujet unique à traiter`,
+      description: `Pour **${c.qui}** : ${c.sujet}\n*(ajouté par ${c.addedBy})*`,
+      color: 0xba68c8,
+      footer: `Demandé par ${user.tag}`
+    });
+  }
+
+  return createEmbed({
+    title: '📋 Liste des sujets',
+    description: calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n'),
+    color: 0xba68c8,
+    footer: `Demandé par ${user.tag}`
+  });
 }
 
 module.exports = {
@@ -64,41 +96,21 @@ module.exports = {
         calls.push({ qui, sujet, addedBy: message.author.tag });
         saveCalls(calls);
 
-        const embed = new EmbedBuilder()
-          .setColor(0x4caf50)
-          .setTitle('✅ Sujet ajouté')
-          .addFields(
+        const embed = createEmbed({
+          title: '✅ Sujet ajouté',
+          color: 0x4caf50,
+          fields: [
             { name: 'Pour', value: qui, inline: true },
             { name: 'Sujet', value: sujet, inline: true },
             { name: 'Ajouté par', value: message.author.tag, inline: false }
-          )
-          .setTimestamp();
+          ]
+        });
 
         await message.channel.send({ embeds: [embed] });
         break;
       }
       case 'list': {
-        if (!calls.length) {
-          const embed = new EmbedBuilder()
-            .setColor(0x9e9e9e)
-            .setTitle('📭 Liste vide')
-            .setDescription('Aucun sujet n’a encore été ajouté.')
-            .setFooter({ text: `Demandé par ${message.author.tag}` })
-            .setTimestamp();
-          await message.channel.send({ embeds: [embed] });
-          return;
-        }
-
-        const embed = new EmbedBuilder()
-          .setColor(0x2196f3)
-          .setTitle('📋 Liste des sujets')
-          .setDescription(
-            calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n')
-          )
-          .setFooter({ text: `Demandé par ${message.author.tag}` })
-          .setTimestamp();
-
-        await message.channel.send({ embeds: [embed] });
+        await message.channel.send({ embeds: [listCallsEmbed(calls, message.author)] });
         break;
       }
       case 'del': {
@@ -113,30 +125,34 @@ module.exports = {
         const [removed] = calls.splice(num - 1, 1);
         saveCalls(calls);
 
-        const embed = new EmbedBuilder()
-          .setColor(0xf44336)
-          .setTitle('🗑️ Sujet supprimé')
-          .addFields(
+        const embed = createEmbed({
+          title: '🗑️ Sujet supprimé',
+          color: 0xf44336,
+          fields: [
             { name: 'Pour', value: removed.qui, inline: true },
             { name: 'Sujet', value: removed.sujet, inline: true }
-          )
-          .setFooter({ text: `Supprimé par ${message.author.tag}` })
-          .setTimestamp();
+          ],
+          footer: `Supprimé par ${message.author.tag}`
+        });
 
         await message.channel.send({ embeds: [embed] });
         break;
       }
       default: {
-        const embed = new EmbedBuilder()
-          .setColor(0xff5722)
-          .setTitle('❓ Commande inconnue')
-          .setDescription(`La sous-commande \`${subcommand}\` n’existe pas.`)
-          .addFields({ name: 'Commandes disponibles', value: '`add`, `list`, `del`' })
-          .setFooter({ text: `Demandé par ${message.author.tag}` })
-          .setTimestamp();
+        const embed = createEmbed({
+          title: '❓ Commande inconnue',
+          color: 0xff5722,
+          description: `La sous-commande \`${subcommand}\` n’existe pas.`,
+          fields: [{ name: 'Commandes disponibles', value: '`add`, `list`, `del`' }],
+          footer: `Demandé par ${message.author.tag}`
+        });
 
         await message.channel.send({ embeds: [embed] });
       }
     }
+  },
+  listCalls: (user) => {
+    const calls = readCalls();
+    return listCallsEmbed(calls, user);
   }
 };

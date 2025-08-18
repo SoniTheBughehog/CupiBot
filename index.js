@@ -1,56 +1,30 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const cron = require('node-cron');
 const config = require('./config.json');
 
+const { listCalls } = require('./commands/callnote');
+const { listNotes, getAllNotes } = require('./commands/note');
+
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
 const prefix = config.prefix || '!';
 client.commands = new Collection();
 
-// --- Utils JSON ---
-function readJSON(file) {
-  try {
-    if (!fs.existsSync(file)) return null;
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (err) {
-    console.error(`Erreur lecture JSON (${file}):`, err);
-    return null;
-  }
-}
-
-function writeJSON(file, data) {
-  try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.error(`Erreur écriture JSON (${file}):`, err);
-  }
-}
-
-// --- Import commandes ---
+// --- Import des commandes ---
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
-for (const file of commandFiles) {
-  const command = require(path.join(commandsPath, file));
-  if (command?.name && typeof command.execute === 'function') {
-    client.commands.set(command.name, command);
-  } else {
-    console.warn(`Commande ignorée (structure invalide): ${file}`);
-  }
-}
+fs.readdirSync(commandsPath)
+  .filter(f => f.endsWith('.js'))
+  .forEach(file => {
+    const cmd = require(path.join(commandsPath, file));
+    if (cmd?.name && typeof cmd.execute === 'function') client.commands.set(cmd.name, cmd);
+  });
 
-// --- Import pour calendar ---
-const { getCalendarEmbed } = require('./commands/calendar.js');
-
-// --- Fonctions utilitaires pour envoyer embeds ---
+// --- Fonction utilitaire pour envoyer un embed ---
 async function sendEmbed(channelId, embed) {
   if (!channelId) return;
   try {
@@ -63,71 +37,42 @@ async function sendEmbed(channelId, embed) {
 }
 
 // --- Crons ---
-async function sendCallnotes() {
-  const calls = readJSON(path.join(__dirname, 'data', 'callnote.json'));
-  if (!Array.isArray(calls) || calls.length === 0) return;
-
-  const embed = new EmbedBuilder()
-    .setColor('#2196f3')
-    .setTitle('📋 Liste des sujets pour l’appel')
-    .setDescription(calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n'))
-    .setTimestamp();
-
+async function sendCallnotesCron() {
+  if (!config.reminderChannelId) return;
+  const embed = listCalls({ username: 'Appel' }); // utilisateur fictif pour le footer
   await sendEmbed(config.reminderChannelId, embed);
 }
 
-async function sendNotes() {
-  const data = readJSON(path.join(__dirname, 'data', 'note.json'));
-  if (!data || typeof data !== 'object') return;
-
-  for (const [userId, userData] of Object.entries(data)) {
-    if (!userData.channelId || !Array.isArray(userData.notes) || userData.notes.length === 0) continue;
-
-    const userNotes = userData.notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n');
-    const embed = new EmbedBuilder()
-      .setColor('#9c27b0')
-      .setTitle(`📋 Notes de ${client.users.cache.get(userId)?.username || 'Utilisateur'}`)
-      .setDescription(userNotes)
-      .setTimestamp();
-
-    await sendEmbed(userData.channelId, embed);
+async function sendNotesCron() {
+  const allNotes = getAllNotes();
+  for (const { channelId, notes, userId } of allNotes) {
+    const user = { id: userId, username: `Utilisateur` };
+    await sendEmbed(channelId, listNotes(user));
   }
-}
-
-async function sendCalendar() {
-  const calendar = readJSON(path.join(__dirname, 'data', 'calendar.json'));
-  if (!Array.isArray(calendar)) return;
-
-  const embed = getCalendarEmbed(calendar);
-  await sendEmbed(config.reminderChannelId, embed);
 }
 
 // --- Ready ---
 client.once('ready', () => {
   console.log(`Connecté en tant que ${client.user.tag}`);
 
-  if (!config.reminderChannelId) {
-    console.warn('⚠️ reminderChannelId non configuré dans config.json. Les cron ne fonctionneront pas.');
-  }
+  if (!config.reminderChannelId) console.warn('⚠️ reminderChannelId non configuré.');
 
-  cron.schedule('0 22 * * *', sendCallnotes, { timezone: 'Europe/Paris' });
-  cron.schedule('0 18 * * *', sendNotes, { timezone: 'Europe/Paris' });
-  cron.schedule('0 10 * * *', sendCalendar, { timezone: 'Europe/Paris' });
+  cron.schedule('0 22 * * *', sendCallnotesCron, { timezone: 'Europe/Paris' });
+  cron.schedule('0 18 * * *', sendNotesCron, { timezone: 'Europe/Paris' });
 });
 
-// --- Messages ---
+// --- Message handler ---
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
-  const content = message.content.trim().toLowerCase();
-  if (/\b(meow|miaou)\b/i.test(content)) {
-    await message.channel.send('meow');
-    return;
+  const content = message.content.trim();
+  if (/^meow$/i.test(content)) {
+    return message.channel.send('meow');
   }
 
-  if (!message.content.startsWith(prefix)) return;
+  if (!content.startsWith(prefix)) return;
 
-  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  const args = content.slice(prefix.length).trim().split(/ +/);
   const commandName = args.shift().toLowerCase();
 
   const command = client.commands.get(commandName);

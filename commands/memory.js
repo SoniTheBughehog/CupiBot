@@ -17,15 +17,40 @@ function saveMemory(memories) {
   fs.writeFileSync(filePath, JSON.stringify(memories, null, 2));
 }
 
-function createEmbed({ title, description, color, footer, timestamp = true }) {
+function createEmbed({ title, description, color = 0x3498db, footer, timestamp = true }) {
   const embed = new EmbedBuilder()
     .setTitle(title)
     .setDescription(description)
     .setColor(color);
-
   if (footer) embed.setFooter({ text: footer });
   if (timestamp) embed.setTimestamp();
   return embed;
+}
+
+function memoryListEmbed(user, list) {
+  if (!list || list.length === 0) {
+    return createEmbed({
+      title: '📭 Aucun souvenir enregistré',
+      description: 'Ajoute ton premier souvenir avec :\n`!memory add <texte>`',
+      color: 0x95a5a6
+    });
+  }
+
+  if (list.length === 1) {
+    return createEmbed({
+      title: `📚 Souvenir unique de ${user.username}`,
+      description: list[0],
+      color: 0x3498db,
+      footer: '1 souvenir'
+    });
+  }
+
+  return createEmbed({
+    title: `📚 Souvenirs de ${user.username}`,
+    description: list.map((m, i) => `**${i + 1}.** ${m}`).join('\n'),
+    color: 0x3498db,
+    footer: `Total : ${list.length} souvenirs`
+  });
 }
 
 module.exports = {
@@ -46,12 +71,12 @@ module.exports = {
               '**Utilisation :**',
               '`!memory add <texte>` → Ajouter un souvenir',
               '`!memory list` → Voir tes souvenirs',
-              '`!memory del <num>` → Supprimer un souvenir',
+              '`!memory del <num>` → Supprimer un souvenir'
             ].join('\n'),
-            color: '#f1c40f',
-            footer: `Demandé par ${message.author.tag}`,
-          }),
-        ],
+            color: 0xf1c40f,
+            footer: `Demandé par ${message.author.tag}`
+          })
+        ]
       });
     }
 
@@ -66,9 +91,9 @@ module.exports = {
               createEmbed({
                 title: '⚠️ Erreur',
                 description: 'Merci de préciser un souvenir à enregistrer.\n\n**Exemple :** `!memory add Mon premier concert`',
-                color: '#e74c3c',
-              }),
-            ],
+                color: 0xe74c3c
+              })
+            ]
           });
         }
         memories[userId].push(text);
@@ -79,38 +104,15 @@ module.exports = {
             createEmbed({
               title: '💾 Souvenir ajouté',
               description: `"${text}"`,
-              color: '#2ecc71',
-              footer: `Ajouté par ${message.author.tag}`,
-            }),
-          ],
+              color: 0x2ecc71,
+              footer: `Ajouté par ${message.author.tag}`
+            })
+          ]
         });
       }
 
-      case 'list': {
-        const list = memories[userId];
-        if (list.length === 0) {
-          return message.channel.send({
-            embeds: [
-              createEmbed({
-                title: '📭 Aucun souvenir enregistré',
-                description: 'Ajoute ton premier souvenir avec :\n`!memory add <texte>`',
-                color: '#95a5a6',
-              }),
-            ],
-          });
-        }
-
-        return message.channel.send({
-          embeds: [
-            createEmbed({
-              title: `📚 Souvenirs de ${message.author.username}`,
-              description: list.map((m, i) => `**${i + 1}.** ${m}`).join('\n'),
-              color: '#3498db',
-              footer: `Total : ${list.length} souvenir(s)`,
-            }),
-          ],
-        });
-      }
+      case 'list':
+        return message.channel.send({ embeds: [memoryListEmbed(message.author, memories[userId])] });
 
       case 'del': {
         const num = parseInt(args[0], 10);
@@ -123,11 +125,11 @@ module.exports = {
                 description: [
                   'Merci d’indiquer un numéro valide correspondant à un souvenir existant.',
                   '**Exemple :** `!memory del 2`',
-                  `Tu as actuellement **${list.length}** souvenir(s).`,
+                  `Tu as actuellement **${list.length}** souvenir(s).`
                 ].join('\n'),
-                color: '#e74c3c',
-              }),
-            ],
+                color: 0xe74c3c
+              })
+            ]
           });
         }
 
@@ -139,10 +141,10 @@ module.exports = {
             createEmbed({
               title: '🗑️ Souvenir supprimé',
               description: `"${removed}"`,
-              color: '#e74c3c',
-              footer: `Supprimé par ${message.author.tag}`,
-            }),
-          ],
+              color: 0xe74c3c,
+              footer: `Supprimé par ${message.author.tag}`
+            })
+          ]
         });
       }
 
@@ -155,13 +157,18 @@ module.exports = {
                 'Sous-commandes disponibles :',
                 '`add <texte>` → Ajouter un souvenir',
                 '`list` → Voir tes souvenirs',
-                '`del <num>` → Supprimer un souvenir',
+                '`del <num>` → Supprimer un souvenir'
               ].join('\n'),
-              color: '#e67e22',
-              footer: `Demandé par ${message.author.tag}`,
-            }),
-          ],
+              color: 0xe67e22,
+              footer: `Demandé par ${message.author.tag}`
+            })
+          ]
         });
     }
   },
+
+  listMemories: (user) => {
+    const memories = readMemory();
+    return memoryListEmbed(user, memories[user.id] || []);
+  }
 };

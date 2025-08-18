@@ -4,6 +4,7 @@ const { EmbedBuilder } = require('discord.js');
 
 const filePath = path.join(__dirname, '..', 'data', 'note.json');
 
+// --- Fonctions de lecture/écriture ---
 function readData() {
   if (!fs.existsSync(filePath)) return {};
   try {
@@ -17,14 +18,45 @@ function saveData(data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-function createEmbed({ title, description, color = '#2196f3', error = false }) {
-  return new EmbedBuilder()
+// --- Création d'embed ---
+function createEmbed({ title, description, color = '#2196f3', error = false, footer }) {
+  const embed = new EmbedBuilder()
     .setTitle(error ? `❌ ${title}` : title)
     .setDescription(description)
     .setColor(error ? '#ff0000' : color)
     .setTimestamp();
+  if (footer) embed.setFooter({ text: footer });
+  return embed;
 }
 
+// --- Liste des notes pour un utilisateur ---
+function notesListEmbed(user, notes) {
+  if (!notes || notes.length === 0) {
+    return createEmbed({
+      title: '📭 Aucune note',
+      description: 'Ta liste est vide pour l’instant.',
+      color: '#808080'
+    });
+  }
+
+  if (notes.length === 1) {
+    return createEmbed({
+      title: `📋 Note unique de ${user.username}`,
+      description: notes[0].sujet,
+      color: '#2196f3',
+      footer: '1 note'
+    });
+  }
+
+  return createEmbed({
+    title: `📋 Tes notes (${user.username})`,
+    description: notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n'),
+    color: '#2196f3',
+    footer: `Total : ${notes.length} notes`
+  });
+}
+
+// --- Commande Discord ---
 module.exports = {
   name: 'note',
   description: 'Gère ta liste personnelle de notes',
@@ -42,8 +74,9 @@ module.exports = {
             description:
               'Utilisation :\n`!note add <sujet>` → ajouter une note\n`!note list` → voir tes notes\n`!note del <num>` → supprimer une note\n`!note setchannel` → définir le salon pour les rappels',
             error: true,
-          }),
-        ],
+            footer: `Demandé par ${message.author.tag}`
+          })
+        ]
       });
     }
 
@@ -54,13 +87,7 @@ module.exports = {
         const sujet = args.join(' ').trim();
         if (!sujet) {
           return message.channel.send({
-            embeds: [
-              createEmbed({
-                title: 'Sujet manquant',
-                description: 'Usage : `!note add <sujet>`',
-                error: true,
-              }),
-            ],
+            embeds: [createEmbed({ title: 'Sujet manquant', description: 'Usage : `!note add <sujet>`', error: true })]
           });
         }
         userData.notes.push({ sujet, addedBy: message.author.tag });
@@ -70,64 +97,29 @@ module.exports = {
             createEmbed({
               title: 'Note ajoutée 📌',
               description: `**${sujet}**\n\nAjoutée par *${message.author.tag}*`,
-              color: '#4caf50',
-            }),
-          ],
+              color: '#4caf50'
+            })
+          ]
         });
       }
 
-      case 'list': {
-        if (!userData.notes.length) {
-          return message.channel.send({
-            embeds: [
-              createEmbed({
-                title: '📭 Aucune note',
-                description: 'Ta liste est vide pour l’instant.',
-                color: '#808080',
-              }),
-            ],
-          });
-        }
-        const notesList = userData.notes
-          .map((n, i) => `**${i + 1}.** ${n.sujet}`)
-          .join('\n');
-        const embed = new EmbedBuilder()
-          .setColor('#2196f3')
-          .setTitle(`📋 Tes notes (${message.author.username})`)
-          .setDescription(notesList)
-          .setFooter({
-            text: `Total : ${userData.notes.length} note${userData.notes.length > 1 ? 's' : ''}`,
-          })
-          .setTimestamp();
+      case 'list':
         return message.channel.send({
-          content: `<@${message.author.id}>`,
-          embeds: [embed],
+          content: `<@${userId}>`,
+          embeds: [notesListEmbed(message.author, userData.notes)]
         });
-      }
 
       case 'del': {
         const num = parseInt(args[0], 10);
         if (isNaN(num) || num < 1 || num > userData.notes.length) {
           return message.channel.send({
-            embeds: [
-              createEmbed({
-                title: 'Numéro invalide',
-                description: `Choisis un numéro entre **1** et **${userData.notes.length}**.`,
-                error: true,
-              }),
-            ],
+            embeds: [createEmbed({ title: 'Numéro invalide', description: `Choisis un numéro entre 1 et ${userData.notes.length}.`, error: true })]
           });
         }
         const [removed] = userData.notes.splice(num - 1, 1);
         saveData(data);
         return message.channel.send({
-          embeds: [
-            createEmbed({
-              title: '🗑️ Note supprimée',
-              description: `**${removed.sujet}** a été retirée de ta liste.`,
-              color: '#f44336',
-            }),
-          ],
+          embeds: [createEmbed({ title: '🗑️ Note supprimée', description: `**${removed.sujet}** a été retirée de ta liste.`, color: '#f44336' })]
         });
       }
 
@@ -135,26 +127,27 @@ module.exports = {
         userData.channelId = message.channel.id;
         saveData(data);
         return message.channel.send({
-          embeds: [
-            createEmbed({
-              title: '✅ Salon défini',
-              description: `Tes rappels seront désormais envoyés dans **#${message.channel.name}**.`,
-              color: '#4caf50',
-            }),
-          ],
+          embeds: [createEmbed({ title: '✅ Salon défini', description: `Tes rappels seront désormais envoyés dans **#${message.channel.name}**.`, color: '#4caf50' })]
         });
       }
 
       default:
         return message.channel.send({
-          embeds: [
-            createEmbed({
-              title: 'Commande inconnue',
-              description: 'Commandes disponibles : `add` | `list` | `del` | `setchannel`',
-              error: true,
-            }),
-          ],
+          embeds: [createEmbed({ title: 'Commande inconnue', description: 'Commandes disponibles : `add` | `list` | `del` | `setchannel`', error: true })]
         });
     }
   },
+
+  // --- Fonctions réutilisables dans index.js ---
+  listNotes: (user) => {
+    const data = readData();
+    return notesListEmbed(user, (data[user.id]?.notes) || []);
+  },
+
+  getAllNotes: () => {
+    const data = readData();
+    return Object.entries(data)
+      .filter(([_, userData]) => userData.channelId && Array.isArray(userData.notes) && userData.notes.length)
+      .map(([userId, userData]) => ({ userId, channelId: userData.channelId, notes: userData.notes }));
+  }
 };
