@@ -28,7 +28,7 @@ function createBoard() {
 }
 
 function renderBoard(board) {
-  return `${header}\n${board.map(row => row.join('')).join('\n')}`;
+  return board.map(row => row.join('')).join('\n');
 }
 
 function checkWin(board, piece) {
