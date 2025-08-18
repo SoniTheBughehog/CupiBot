@@ -7,7 +7,6 @@ const COLS = 7;
 const EMPTY = '⚪';
 const PLAYER1 = '🔴';
 const PLAYER2 = '🟡';
-const NUMBER_EMOJIS = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣'];
 
 const DATA_FILE = path.resolve(__dirname, '../data/puissance4.json');
 
@@ -28,12 +27,9 @@ function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
 }
 
-
 function renderBoard(board) {
-  const header = NUMBER_EMOJIS.join(' ');
   return `${header}\n${board.map(row => row.join('')).join('\n')}`;
 }
-
 
 function checkWin(board, piece) {
   // Horizontal
