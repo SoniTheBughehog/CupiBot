@@ -13,32 +13,11 @@ function saveCalendar(data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
 }
 
+
 function parseDate(dateStr) {
   const [day, month, year] = dateStr.split('/').map(Number)
   if (!day || !month || !year) return null
   return new Date(year, month - 1, day)
-}
-
-function getCalendarEmbed(calendar) {
-    const embed = new EmbedBuilder()
-        .setTitle('📅 Calendrier')
-        .setColor('#03a9f4')
-
-    if (calendar.length === 0) {
-        embed.setDescription('Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
-    } else if (calendar.length === 1) {
-        const entry = calendar[0]
-        const date = new Date(entry.date)
-        embed.setDescription(`**Date :** ${date.toLocaleDateString()}\n**Raison :** ${entry.reason}\n**Décompte :** ${formatCountdown(date)}`)
-    } else {
-        embed.setDescription(
-            calendar.map((entry, i) => {
-                const date = new Date(entry.date)
-                return `**${i + 1}.** ${date.toLocaleDateString()} → ${entry.reason} (_${formatCountdown(date)} restants_)`
-            }).join('\n')
-        )
-    }
-    return embed
 }
 
 function formatCountdown(target) {
@@ -70,12 +49,12 @@ module.exports = {
       } else if (calendar.length === 1) {
         const entry = calendar[0]
         const date = new Date(entry.date)
-        embed.setDescription(`**Date :** ${date.toLocaleDateString()}\n**Raison :** ${entry.reason}\n**Décompte :** ${formatCountdown(date)}`)
+        embed.setDescription(`**Date :** ${formatDate(date)}\n**Raison :** ${entry.reason}\n**Décompte :** ${formatCountdown(date)}`)
       } else {
         embed.setDescription(
           calendar.map((entry, i) => {
             const date = new Date(entry.date)
-            return `**${i + 1}.** ${date.toLocaleDateString()} → ${entry.reason} (_${formatCountdown(date)} restants_)`
+            return `**${i + 1}.** ${formatDate(date)} → ${entry.reason} (_${formatCountdown(date)} restants_)`
           }).join('\n')
         )
       }
@@ -99,7 +78,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle('✅ Date ajoutée')
         .setColor('#4caf50')
-        .setDescription(`**Date :** ${date.toLocaleDateString()}\n**Raison :** ${reason}`)
+        .setDescription(`**Date :** ${formatDate(date)}\n**Raison :** ${reason}`)
         .setFooter({ text: `Ajouté par ${message.author.tag}` })
         .setTimestamp()
 
@@ -116,7 +95,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle('🗑️ Date supprimée')
         .setColor('#f44336')
-        .setDescription(`**Date :** ${new Date(removed[0].date).toLocaleDateString()}\n**Raison :** ${removed[0].reason}`)
+        .setDescription(`**Date :** ${formatDate(new Date(removed[0].date))}\n**Raison :** ${removed[0].reason}`)
         .setFooter({ text: `Supprimé par ${message.author.tag}` })
         .setTimestamp()
 
@@ -126,6 +105,36 @@ module.exports = {
     if (sub === 'list'){
         const embed = getCalendarEmbed(calendar)
         return message.channel.send({ embeds: [embed] })
+    }
+
+
+    function formatDate(date) {
+        // Format date as DD/MM/YYYY
+        return date.toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        })
+    }
+
+    function getCalendarEmbed(calendar) {
+        const embed = new EmbedBuilder()
+            .setTitle('📅 Calendrier')
+            .setColor('#03a9f4')
+
+        if (calendar.length === 0) {
+            embed.setDescription('Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
+        } else {
+            embed.setDescription(
+                calendar.map((entry, i) => {
+                    const date = new Date(entry.date)
+                    const countdown = formatCountdown(date)
+                    return `**${i + 1}.** ${formatDate(date)} → ${entry.reason}` +
+                        (countdown ? ` (_${countdown} restants_)` : ' _(date passée)_')
+                }).join('\n')
+            )
+        }
+        return embed
     }
 
     return message.channel.send('❌ Commande inconnue. Sous-commandes : add | del')

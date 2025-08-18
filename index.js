@@ -28,19 +28,12 @@ function utilsReadJSON(file) {
   }
 }
 
-function utilsSaveJSON(file, data) {
-  try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error(`Erreur sauvegarde JSON (${file}):`, err);
-  }
-}
-
 // --- Charger les commandes ---
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
 for (const file of commandFiles) {
   const command = require(path.join(commandsPath, file));
+const { getCalendarEmbed } = require('./calendar.js');
   if (command?.name && typeof command.execute === 'function') {
     client.commands.set(command.name, command);
   } else {
@@ -98,33 +91,15 @@ async function sendNotes() {
   }
 }
 
-function formatCountdown(date) {
-  const now = new Date();
-  const diff = date - now;
-  if (diff <= 0) return 'passé';
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  return `${days} jour${days > 1 ? 's' : ''}`;
-}
-
 async function sendCalendar() {
   const calendar = utilsReadJSON(path.join(__dirname, 'data', 'calendar.json'));
-  if (!Array.isArray(calendar) || calendar.length === 0) return;
+  if (!Array.isArray(calendar)) return;
 
   try {
     const channel = await client.channels.fetch(config.reminderChannelId);
     if (!channel) return;
 
-    const embed = new EmbedBuilder()
-      .setColor('#4caf50')
-      .setTitle('📅 Calendrier')
-      .setDescription(
-        calendar.map((entry, i) => {
-          const date = new Date(entry.date);
-          return `**${i + 1}.** ${date.toLocaleDateString()} → ${entry.reason} (_${formatCountdown(date)} restants_)`;
-        }).join('\n')
-      )
-      .setTimestamp();
-
+    const embed = getCalendarEmbed(calendar);
     await channel.send({ embeds: [embed] });
   } catch (err) {
     console.error('Erreur en envoyant le calendrier:', err);
