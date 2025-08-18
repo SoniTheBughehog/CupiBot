@@ -27,6 +27,13 @@ module.exports = {
       '`!note setchannel` — Définir le salon des rappels automatiques'
     ].join('\n')
 
+    // Commandes Calendar
+    const calendarHelp = [
+      '`!calendar add <date> <event>` — Ajouter un événement au calendrier',
+      '`!calendar list` — Afficher les événements à venir',
+      '`!calendar del <num>` — Supprimer un événement',
+    ].join('\n')
+
     // Commandes Memory
     const memoryHelp = [
       '`!memory add <texte>` — Ajouter un souvenir',
@@ -38,7 +45,7 @@ module.exports = {
     const p4Help = [
       '`!puissance4 start` — Commencer une partie',
       '`!puissance4 <1-7>` — Placer un pion dans la colonne',
-      '`!puissance4 stop` — Arrêter la partie en cours',
+      '`!puissance4 board` — Afficher le plateau de jeu',
       '`!puissance4 reset` — Réinitialiser la partie'
     ].join('\n')
 
@@ -51,6 +58,7 @@ module.exports = {
         { name: '📋 Commandes Callnote', value: callnoteHelp, inline: false },
         { name: '📝 Commandes Note', value: noteHelp, inline: false },
         { name: '💭 Commandes Memory', value: memoryHelp, inline: false },
+        { name: '📅 Commandes Calendar', value: calendarHelp, inline: false },
         { name: '🎮 Commandes Puissance4', value: p4Help, inline: false }
       )
       .setFooter({ text: `Demandé par ${message.author.tag}`, iconURL: message.author.displayAvatarURL() })

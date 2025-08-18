@@ -1,67 +1,160 @@
-const fs = require('fs')
-const path = require('path')
-const { EmbedBuilder } = require('discord.js')
+const fs = require('fs');
+const path = require('path');
+const { EmbedBuilder } = require('discord.js');
 
-const filePath = path.join(__dirname, '..', 'data', 'note.json')
+const filePath = path.join(__dirname, '..', 'data', 'note.json');
 
 function readData() {
-  if (!fs.existsSync(filePath)) return {}
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'))
+  if (!fs.existsSync(filePath)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return {};
+  }
 }
 
 function saveData(data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+function createEmbed({ title, description, color = '#2196f3', error = false }) {
+  return new EmbedBuilder()
+    .setTitle(error ? `❌ ${title}` : title)
+    .setDescription(description)
+    .setColor(error ? '#ff0000' : color)
+    .setTimestamp();
 }
 
 module.exports = {
   name: 'note',
-  description: 'Gérer ta liste perso de notes',
+  description: 'Gère ta liste personnelle de notes',
   execute(message, args) {
-    const userId = message.author.id
-    const data = readData()
-    if (!data[userId]) data[userId] = { channelId: null, notes: [] }
-    const userData = data[userId]
+    const userId = message.author.id;
+    const data = readData();
+    if (!data[userId]) data[userId] = { channelId: null, notes: [] };
+    const userData = data[userId];
 
-    if (args.length === 0) {
-      return message.channel.send('Usage: !note add <sujet> | list | del <num> | setchannel')
+    if (!args.length) {
+      return message.channel.send({
+        embeds: [
+          createEmbed({
+            title: 'Commande invalide',
+            description:
+              'Utilisation :\n`!note add <sujet>` → ajouter une note\n`!note list` → voir tes notes\n`!note del <num>` → supprimer une note\n`!note setchannel` → définir le salon pour les rappels',
+            error: true,
+          }),
+        ],
+      });
     }
 
-    const sub = args.shift().toLowerCase()
+    const sub = args.shift().toLowerCase();
 
-    if (sub === 'add') {
-      const sujet = args.join(' ')
-      if (!sujet) return message.channel.send('Usage: !note add <sujet>')
-      userData.notes.push({ sujet, addedBy: message.author.tag })
-      saveData(data)
-      const embed = new EmbedBuilder()
-        .setColor('#4caf50')
-        .setTitle('Note ajoutée 📌')
-        .setDescription(sujet)
-        .setFooter({ text: `Ajoutée par ${message.author.tag}` })
-      return message.channel.send({ embeds: [embed] })
+    switch (sub) {
+      case 'add': {
+        const sujet = args.join(' ').trim();
+        if (!sujet) {
+          return message.channel.send({
+            embeds: [
+              createEmbed({
+                title: 'Sujet manquant',
+                description: 'Usage : `!note add <sujet>`',
+                error: true,
+              }),
+            ],
+          });
+        }
+        userData.notes.push({ sujet, addedBy: message.author.tag });
+        saveData(data);
+        return message.channel.send({
+          embeds: [
+            createEmbed({
+              title: 'Note ajoutée 📌',
+              description: `**${sujet}**\n\nAjoutée par *${message.author.tag}*`,
+              color: '#4caf50',
+            }),
+          ],
+        });
+      }
 
-    } else if (sub === 'list') {
-      if (userData.notes.length === 0) return message.channel.send('📭 Tu n’as aucune note.')
-      const embed = new EmbedBuilder()
-        .setColor('#2196f3')
-        .setTitle(`📋 Tes notes (${message.author.username})`)
-        .setDescription(userData.notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n'))
-      return message.channel.send({ embeds: [embed] })
+      case 'list': {
+        if (!userData.notes.length) {
+          return message.channel.send({
+            embeds: [
+              createEmbed({
+                title: '📭 Aucune note',
+                description: 'Ta liste est vide pour l’instant.',
+                color: '#808080',
+              }),
+            ],
+          });
+        }
+        const notesList = userData.notes
+          .map((n, i) => `**${i + 1}.** ${n.sujet}`)
+          .join('\n');
+        const embed = new EmbedBuilder()
+          .setColor('#2196f3')
+          .setTitle(`📋 Tes notes (${message.author.username})`)
+          .setDescription(notesList)
+          .setFooter({
+            text: `Total : ${userData.notes.length} note${userData.notes.length > 1 ? 's' : ''}`,
+          })
+          .setTimestamp();
+        return message.channel.send({
+          content: `<@${message.author.id}>`,
+          embeds: [embed],
+        });
+      }
 
-    } else if (sub === 'del') {
-      const num = parseInt(args[0])
-      if (isNaN(num) || num < 1 || num > userData.notes.length) return message.channel.send('❌ Numéro invalide.')
-      const removed = userData.notes.splice(num - 1, 1)
-      saveData(data)
-      return message.channel.send(`🗑️ Note supprimée : ${removed[0].sujet}`)
+      case 'del': {
+        const num = parseInt(args[0], 10);
+        if (isNaN(num) || num < 1 || num > userData.notes.length) {
+          return message.channel.send({
+            embeds: [
+              createEmbed({
+                title: 'Numéro invalide',
+                description: `Choisis un numéro entre **1** et **${userData.notes.length}**.`,
+                error: true,
+              }),
+            ],
+          });
+        }
+        const [removed] = userData.notes.splice(num - 1, 1);
+        saveData(data);
+        return message.channel.send({
+          embeds: [
+            createEmbed({
+              title: '🗑️ Note supprimée',
+              description: `**${removed.sujet}** a été retirée de ta liste.`,
+              color: '#f44336',
+            }),
+          ],
+        });
+      }
 
-    } else if (sub === 'setchannel') {
-      userData.channelId = message.channel.id
-      saveData(data)
-      return message.channel.send(`✅ Tes rappels seront envoyés dans **#${message.channel.name}**`)
+      case 'setchannel': {
+        userData.channelId = message.channel.id;
+        saveData(data);
+        return message.channel.send({
+          embeds: [
+            createEmbed({
+              title: '✅ Salon défini',
+              description: `Tes rappels seront désormais envoyés dans **#${message.channel.name}**.`,
+              color: '#4caf50',
+            }),
+          ],
+        });
+      }
 
-    } else {
-      return message.channel.send('Commande inconnue. Usage: add | list | del | setchannel')
+      default:
+        return message.channel.send({
+          embeds: [
+            createEmbed({
+              title: 'Commande inconnue',
+              description: 'Commandes disponibles : `add` | `list` | `del` | `setchannel`',
+              error: true,
+            }),
+          ],
+        });
     }
-  }
-}
+  },
+};

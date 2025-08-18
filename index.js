@@ -1,9 +1,9 @@
-require('dotenv').config()
-const fs = require('fs')
-const path = require('path')
-const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js')
-const cron = require('node-cron')
-const config = require('./config.json')
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const cron = require('node-cron');
+const config = require('./config.json');
 
 const client = new Client({
   intents: [
@@ -11,123 +11,183 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
   ]
-})
+});
 
-client.commands = new Collection()
-const prefix = config.prefix
+client.commands = new Collection();
+const prefix = config.prefix || '!';
 
-// Charger les commandes
-const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(file => file.endsWith('.js'))
+// --- Utils JSON ---
+function utilsReadJSON(file) {
+  try {
+    if (!fs.existsSync(file)) return null;
+    const data = fs.readFileSync(file, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    console.error(`Erreur lecture JSON (${file}):`, err);
+    return null;
+  }
+}
+
+function utilsSaveJSON(file, data) {
+  try {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error(`Erreur sauvegarde JSON (${file}):`, err);
+  }
+}
+
+// --- Charger les commandes ---
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
 for (const file of commandFiles) {
-  const command = require(`./commands/${file}`)
-  client.commands.set(command.name, command)
+  const command = require(path.join(commandsPath, file));
+  if (command?.name && typeof command.execute === 'function') {
+    client.commands.set(command.name, command);
+  } else {
+    console.warn(`Commande ignorée (structure invalide): ${file}`);
+  }
 }
 
-// Fonction pour lire les callnotes
-function readCalls() {
-  const filePath = path.join(__dirname, 'data', 'callnote.json')
-  if (!fs.existsSync(filePath)) return []
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'))
-}
-
-// Événement ready
-client.once('ready', () => {
-  console.log(`Connecté en tant que ${client.user.tag}`)
-
-  // Envoi automatique tous les jours à 22h heure Paris
-  // Envoi automatique tous les jours à 22h heure Paris
-cron.schedule('0 22 * * *', () => {
-  if (!config.reminderChannelId) return
-
-  const calls = readCalls()
-  const channel = client.channels.cache.get(config.reminderChannelId)
-  if (!channel) return
-
-  if (calls.length === 0) return // <-- au lieu d'envoyer un message "aucun sujet"
-
-  const embed = new EmbedBuilder()
-    .setColor('#2196f3')
-    .setTitle('📋 Liste des sujets pour l’appel')
-    .setDescription(calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n'))
-    .setTimestamp()
-
-  channel.send({ embeds: [embed] })
-}, { timezone: 'Europe/Paris' })
-
-// Rappel des notes perso à 22h
-cron.schedule('0 18 * * *', () => {
-  const filePath = path.join(__dirname, 'data', 'note.json')
-  if (!fs.existsSync(filePath)) return
-  const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-
-  for (const userId in data) {
-    const userData = data[userId]
-    if (!userData.channelId || userData.notes.length === 0) continue
-
-    const channel = client.channels.cache.get(userData.channelId)
-    if (!channel) continue
-
-    const embed = new EmbedBuilder()
-      .setColor('#9c27b0')
-      .setTitle(`📋 Notes de ${client.users.cache.get(userId)?.username || 'Utilisateur'}`)
-      .setDescription(userData.notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n'))
-    channel.send({ embeds: [embed] })
-  }
-}, { timezone: 'Europe/Paris' })
-
-})
-
-// Événement messageCreate (commandes + meow)
-client.on('messageCreate', message => {
-  if (message.author.bot) return
-
-  const text = message.content.toLowerCase()
-  if (text.includes('meow') || text.includes('miaou')) {
-    message.channel.send('meow')
-    return
-  }
-
-  if (!message.content.startsWith(prefix)) return
-
-  const args = message.content.slice(prefix.length).trim().split(/ +/)
-  const commandName = args.shift().toLowerCase()
-
-  if (!client.commands.has(commandName)) return
+// --- Fonctions pour cron ---
+async function sendCallnotes() {
+  if (!config.reminderChannelId) return;
+  const calls = utilsReadJSON(path.join(__dirname, 'data', 'callnote.json'));
+  if (!Array.isArray(calls) || calls.length === 0) return;
 
   try {
-    client.commands.get(commandName).execute(message, args)
-  } catch (error) {
-    console.error(error)
-    message.reply('Une erreur est survenue en exécutant la commande.')
-  }
-})
+    const channel = await client.channels.fetch(config.reminderChannelId);
+    if (!channel) return;
 
-let retryCount = 0
-const maxRetries = 5
+    const embed = new EmbedBuilder()
+      .setColor('#2196f3')
+      .setTitle('📋 Liste des sujets pour l’appel')
+      .setDescription(
+        calls.map((c, i) => `**${i + 1}.** [${c.qui}] ${c.sujet} _(par ${c.addedBy})_`).join('\n')
+      )
+      .setTimestamp();
+
+    await channel.send({ embeds: [embed] });
+  } catch (err) {
+    console.error('Erreur en envoyant les callnotes:', err);
+  }
+}
+
+async function sendNotes() {
+  const data = utilsReadJSON(path.join(__dirname, 'data', 'note.json'));
+  if (!data || typeof data !== 'object') return;
+
+  for (const [userId, userData] of Object.entries(data)) {
+    if (!userData.channelId || !Array.isArray(userData.notes) || userData.notes.length === 0) continue;
+
+    try {
+      const channel = await client.channels.fetch(userData.channelId);
+      const user = await client.users.fetch(userId);
+      if (!channel) continue;
+
+      const embed = new EmbedBuilder()
+        .setColor('#9c27b0')
+        .setTitle(`📋 Notes de ${user?.username || 'Utilisateur'}`)
+        .setDescription(
+          userData.notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n')
+        );
+
+      await channel.send({ embeds: [embed] });
+    } catch (err) {
+      console.error(`Erreur pour user ${userId}:`, err);
+    }
+  }
+}
+
+function formatCountdown(date) {
+  const now = new Date();
+  const diff = date - now;
+  if (diff <= 0) return 'passé';
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  return `${days} jour${days > 1 ? 's' : ''}`;
+}
+
+async function sendCalendar() {
+  const calendar = utilsReadJSON(path.join(__dirname, 'data', 'calendar.json'));
+  if (!Array.isArray(calendar) || calendar.length === 0) return;
+
+  try {
+    const channel = await client.channels.fetch(config.reminderChannelId);
+    if (!channel) return;
+
+    const embed = new EmbedBuilder()
+      .setColor('#4caf50')
+      .setTitle('📅 Calendrier')
+      .setDescription(
+        calendar.map((entry, i) => {
+          const date = new Date(entry.date);
+          return `**${i + 1}.** ${date.toLocaleDateString()} → ${entry.reason} (_${formatCountdown(date)} restants_)`;
+        }).join('\n')
+      )
+      .setTimestamp();
+
+    await channel.send({ embeds: [embed] });
+  } catch (err) {
+    console.error('Erreur en envoyant le calendrier:', err);
+  }
+}
+
+// --- Ready ---
+client.once('ready', () => {
+  console.log(`Connecté en tant que ${client.user.tag}`);
+
+  cron.schedule('0 22 * * *', sendCallnotes, { timezone: 'Europe/Paris' });
+  cron.schedule('0 18 * * *', sendNotes, { timezone: 'Europe/Paris' });
+  cron.schedule('0 10 * * *', sendCalendar, { timezone: 'Europe/Paris' });
+});
+
+// --- Messages ---
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+
+  if (/\b(meow|miaou)\b/i.test(message.content)) {
+    await message.channel.send('meow');
+    return;
+  }
+
+  if (!message.content.startsWith(prefix)) return;
+
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  const commandName = args.shift().toLowerCase();
+
+  const command = client.commands.get(commandName);
+  if (!command) return;
+
+  try {
+    await command.execute(message, args);
+  } catch (err) {
+    console.error('Erreur exécution commande:', err);
+    await message.reply('❌ Une erreur est survenue lors de l’exécution de la commande.');
+  }
+});
+
+// --- Login avec retry ---
+let retryCount = 0;
+const maxRetries = 5;
 
 function startBot() {
   client.login(process.env.DISCORD_TOKEN)
-    .then(() => {
-      retryCount = 0
-    })
+    .then(() => { retryCount = 0; })
     .catch(err => {
       if (err.code === 'EAI_AGAIN' || (err.message && err.message.includes('getaddrinfo EAI_AGAIN'))) {
-        console.error('Erreur réseau : Impossible de joindre Discord. Vérifiez votre connexion internet ou les DNS.')
-        retryCount++
+        console.error('Erreur réseau : Impossible de joindre Discord.');
+        retryCount++;
         if (retryCount <= maxRetries) {
-          console.log(`Retry ${retryCount} dans 2 secondes...`)
-          setTimeout(startBot, 2000)
+          console.log(`Retry ${retryCount} dans 2 secondes...`);
+          setTimeout(startBot, 2000);
         } else {
-          console.error('Nombre maximum de retries atteint, arrêt du bot.')
-          process.exit(1)
+          console.error('Nombre maximum de retries atteint, arrêt du bot.');
+          process.exit(1);
         }
       } else {
-        console.error('Erreur login', err)
-        process.exit(1)
+        console.error('Erreur login:', err);
+        process.exit(1);
       }
-    })
+    });
 }
 
-startBot()
-
-
+startBot();
