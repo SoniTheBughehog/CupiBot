@@ -13,11 +13,18 @@ function saveCalendar(data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
 }
 
-
 function parseDate(dateStr) {
   const [day, month, year] = dateStr.split('/').map(Number)
   if (!day || !month || !year) return null
   return new Date(year, month - 1, day)
+}
+
+function formatDate(date) {
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
 }
 
 function formatCountdown(target) {
@@ -30,35 +37,68 @@ function formatCountdown(target) {
   return `${diffDays}j ${diffHours}h ${diffMinutes}m`
 }
 
+function getCalendarEmbed(calendar) {
+  const embed = new EmbedBuilder()
+    .setTitle('📅 Calendrier')
+    .setColor('#03a9f4')
+
+  if (calendar.length === 0) {
+    embed.setDescription('Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
+  } else {
+    embed.setDescription(
+      calendar.map((entry, i) => {
+        const date = new Date(entry.date)
+        const countdown = formatCountdown(date)
+        const today = new Date()
+        const isToday =
+          date.getDate() === today.getDate() &&
+          date.getMonth() === today.getMonth() &&
+          date.getFullYear() === today.getFullYear()
+
+        if (isToday) {
+          return `🎉 **${i + 1}. AUJOURD'HUI : ${formatDate(date)} → ${entry.reason.toUpperCase()} !!!** 🎉`
+        }
+
+        return `**${i + 1}.** ${formatDate(date)} → ${entry.reason}` +
+          (countdown ? ` (_${countdown} restants_)` : ' _(date passée, sera supprimée la prochaine fois)_')
+      }).join('\n')
+    )
+  }
+  return embed
+}
+
 module.exports = {
   name: 'calendar',
   description: 'Gérer un calendrier avec décompte',
   readCalendar,
   saveCalendar,
   formatCountdown,
-  execute(message, args) {
+  parseDate,
+  formatDate,
+  getCalendarEmbed,
+
+  // Fonction utilitaire réutilisable ailleurs
+  listCalendar: () => {
     const calendar = readCalendar()
 
+    // suppression auto des dates déjà passées
+    const now = new Date()
+    const updated = calendar.filter(entry => new Date(entry.date) >= now)
+    if (updated.length !== calendar.length) saveCalendar(updated)
+
+    return getCalendarEmbed(updated)
+  },
+
+  execute(message, args) {
+    let calendar = readCalendar()
+    const now = new Date()
+
+    // Suppression auto des dates passées
+    calendar = calendar.filter(entry => new Date(entry.date) >= now)
+    saveCalendar(calendar)
+
     if (args.length === 0) {
-      const embed = new EmbedBuilder()
-        .setTitle('📅 Calendrier')
-        .setColor('#03a9f4')
-
-      if (calendar.length === 0) {
-        embed.setDescription('Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
-      } else if (calendar.length === 1) {
-        const entry = calendar[0]
-        const date = new Date(entry.date)
-        embed.setDescription(`**Date :** ${formatDate(date)}\n**Raison :** ${entry.reason}\n**Décompte :** ${formatCountdown(date)}`)
-      } else {
-        embed.setDescription(
-          calendar.map((entry, i) => {
-            const date = new Date(entry.date)
-            return `**${i + 1}.** ${formatDate(date)} → ${entry.reason} (_${formatCountdown(date)} restants_)`
-          }).join('\n')
-        )
-      }
-
+      const embed = getCalendarEmbed(calendar)
       return message.channel.send({ embeds: [embed] })
     }
 
@@ -102,41 +142,11 @@ module.exports = {
       return message.channel.send({ embeds: [embed] })
     }
 
-    if (sub === 'list'){
-        const embed = getCalendarEmbed(calendar)
-        return message.channel.send({ embeds: [embed] })
+    if (sub === 'list') {
+      const embed = getCalendarEmbed(calendar)
+      return message.channel.send({ embeds: [embed] })
     }
 
-
-    function formatDate(date) {
-        // Format date as DD/MM/YYYY
-        return date.toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        })
-    }
-
-    function getCalendarEmbed(calendar) {
-        const embed = new EmbedBuilder()
-            .setTitle('📅 Calendrier')
-            .setColor('#03a9f4')
-
-        if (calendar.length === 0) {
-            embed.setDescription('Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
-        } else {
-            embed.setDescription(
-                calendar.map((entry, i) => {
-                    const date = new Date(entry.date)
-                    const countdown = formatCountdown(date)
-                    return `**${i + 1}.** ${formatDate(date)} → ${entry.reason}` +
-                        (countdown ? ` (_${countdown} restants_)` : ' _(date passée)_')
-                }).join('\n')
-            )
-        }
-        return embed
-    }
-
-    return message.channel.send('❌ Commande inconnue. Sous-commandes : add | del')
+    return message.channel.send('❌ Commande inconnue. Sous-commandes : add | del | list')
   }
 }

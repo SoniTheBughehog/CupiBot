@@ -6,6 +6,7 @@ const cron = require('node-cron');
 const config = require('./config.json');
 
 const { listCalls } = require('./commands/callnote');
+const { listCalendar } = require('./commands/calendar');
 const { listNotes, getAllNotes } = require('./commands/note');
 
 const client = new Client({
@@ -51,6 +52,12 @@ async function sendNotesCron() {
   }
 }
 
+async function sendCalendarCron(){
+  if (!config.reminderChannelId) return;
+  const embed = listCalendar({ username: 'Calendrier' }); // utilisateur fictif pour le footer
+  await sendEmbed(config.reminderChannelId, embed);
+}
+
 // --- Ready ---
 client.once('ready', () => {
   console.log(`Connecté en tant que ${client.user.tag}`);
@@ -59,6 +66,7 @@ client.once('ready', () => {
 
   cron.schedule('0 22 * * *', sendCallnotesCron, { timezone: 'Europe/Paris' });
   cron.schedule('0 18 * * *', sendNotesCron, { timezone: 'Europe/Paris' });
+  cron.schedule('0 10 * * *', sendCalendarCron, { timezone: 'Europe/Paris' });
 });
 
 // --- Message handler ---

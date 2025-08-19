@@ -30,14 +30,19 @@ module.exports = {
 
     const gif = getRandomGif();
 
+    // message à afficher : si le gif a "message" on prend ça, sinon message par défaut
+    const description = gif?.message 
+      ? gif.message.replace(/\{author\}/g, message.author.username).replace(/\{user\}/g, user.username)
+      : `${message.author} envoie un gros câlin à ${user}`;
+
     const embed = new EmbedBuilder()
       .setColor('#ff69b4')
       .setTitle('🤗 Câlin virtuel !')
-      .setDescription(`${message.author} envoie un gros câlin à ${user}!`)
+      .setDescription(description)
       .setTimestamp();
 
     if (gif?.url) embed.setImage(gif.url);
 
-    message.channel.send({ content: `${user}`, embeds: [embed] });
+    message.channel.send({embeds: [embed]});
   }
 };
