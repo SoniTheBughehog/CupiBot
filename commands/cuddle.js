@@ -10,8 +10,7 @@ function getRandomGif() {
     const data = JSON.parse(fs.readFileSync(gifFile, 'utf8'));
     if (!Array.isArray(data.gifs) || data.gifs.length === 0) return null;
     return data.gifs[Math.floor(Math.random() * data.gifs.length)];
-  } catch (e) {
-    console.error(e);
+  } catch {
     return null;
   }
 }
@@ -32,9 +31,9 @@ module.exports = {
     const gif = getRandomGif();
 
     // message à afficher : si le gif a "message" on prend ça, sinon message par défaut
-    const description = gif?.message
+    const description = gif?.message 
       ? gif.message.replace(/\{author\}/g, message.author.username).replace(/\{user\}/g, user.username)
-      : `${message.author.username} envoie un gros câlin !`;
+      : `${message.author} envoie un gros câlin à ${user}`;
 
     const embed = new EmbedBuilder()
       .setColor('#ff69b4')
@@ -42,14 +41,8 @@ module.exports = {
       .setDescription(description)
       .setTimestamp();
 
-    if (gif?.url) {
-      // Vérifie que l'URL commence bien par http(s)
-      if (gif.url.startsWith('http')) {
-        embed.setImage(gif.url);
-      }
-    }
+    if (gif?.url) embed.setImage(gif.url);
 
-    // mention dans content pour notifier l'utilisateur
-    message.channel.send({ embeds: [embed] });
+    message.channel.send({embeds: [embed]});
   }
 };
