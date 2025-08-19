@@ -51,10 +51,10 @@ module.exports = {
           '!calendar del <num> — Supprimer un événement'
         ]), inline: false },
         { name: '🎮 Commandes Puissance4', value: formatCommands([
-          '!puissance4 start — Commencer une partie',
-          '!puissance4 <1-7> — Placer un pion dans la colonne',
-          '!puissance4 board — Afficher le plateau de jeu',
-          '!puissance4 reset — Réinitialiser la partie'
+          '!p4 start — Commencer une partie',
+          '!p4 <1-7> — Placer un pion dans la colonne',
+          '!p4 board — Afficher le plateau de jeu',
+          '!p4 reset — Réinitialiser la partie'
         ]), inline: false }
       ],
       footer: `Demandé par ${message.author.tag}`

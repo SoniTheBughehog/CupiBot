@@ -10,10 +10,21 @@ const PLAYER2 = '🟡';
 const DATA_FILE = path.resolve(__dirname, '../data/puissance4.json');
 
 function loadGames() {
-  if (!fs.existsSync(DATA_FILE)) return {};
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch { return {}; }
+  if (!fs.existsSync(DATA_FILE)) return { games: {}, scores: {} };
+  try {
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    if (!data.games) data.games = {};
+    if (!data.scores) data.scores = {};
+    return data;
+  } catch {
+    return { games: {}, scores: {} };
+  }
 }
-function saveGames(games) { fs.writeFileSync(DATA_FILE, JSON.stringify(games, null, 2), 'utf8'); }
+
+function saveGames(data) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
 function createBoard() { return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY)); }
 function renderBoard(board) { return board.map(row => row.join('')).join('\n'); }
 
@@ -47,10 +58,12 @@ function renderGameBoardEmbed(game, currentUser) {
 }
 
 module.exports = {
-  name: 'puissance4',
-  description: 'Joue à Puissance 4 ! Usage: start | <colonne> | reset',
+  name: 'p4',
+  description: 'Joue à Puissance 4 ! Usage: start | <colonne> | reset | scoreboard',
   async execute(message, args) {
-    let games = loadGames();
+    let data = loadGames();
+    let games = data.games;
+    let scores = data.scores;
     const channelId = message.channel.id;
     if (!games[channelId]) games[channelId] = { board: createBoard(), turn: 1, players: [] };
     const game = games[channelId];
@@ -58,8 +71,8 @@ module.exports = {
 
     if (sub === 'start') {
       if (!game.players.includes(message.author.id)) game.players.push(message.author.id);
-      saveGames(games);
-      return message.channel.send('🎮 Partie commencée ! Deux joueurs requis.\n➡️ Premier joueur tape `!puissance4 <colonne>` (1-7).');
+      saveGames(data);
+      return message.channel.send('🎮 Partie commencée ! Deux joueurs requis.\n➡️ Premier joueur tape `!p4 <colonne>` (1-7).');
     }
 
     if (sub === 'board') {
@@ -69,11 +82,27 @@ module.exports = {
 
     if (sub === 'reset') {
       delete games[channelId];
-      saveGames(games);
+      saveGames(data);
       return message.channel.send('♻️ Plateau réinitialisé. Partie effacée.');
     }
 
-    if (!args.length) return sendError(message, 'Commande invalide', 'Usage : `start | <colonne> | reset`');
+   if (sub === 'scoreboard') {
+  if (Object.keys(scores).length === 0) return message.channel.send('📉 Aucun score enregistré pour le moment.');
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  let desc = '';
+  for (let [userId, score] of sorted) {
+    desc += `<@${userId}> : **${score}** victoires\n`;
+  }
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Scoreboard Puissance 4')
+    .setDescription(desc)
+    .setColor(0x3498db)
+    .setTimestamp();
+  return message.channel.send({ embeds: [embed] });
+}
+
+
+    if (!args.length) return sendError(message, 'Commande invalide', 'Usage : `start | <colonne> | reset | scoreboard`');
 
     if (!game.players.includes(message.author.id) && game.players.length < 2) game.players.push(message.author.id);
     const currentPlayerId = game.players[game.turn - 1];
@@ -90,16 +119,18 @@ module.exports = {
 
     const piece = game.turn === 1 ? PLAYER1 : PLAYER2;
     if (checkWin(game.board, piece)) {
-      const winner = message.author.username;
-      const playerNames = getPlayerNames(game, message.guild);
+      const winnerId = message.author.id;
+      scores[winnerId] = (scores[winnerId] || 0) + 1;
+
       const victoryEmbed = new EmbedBuilder()
-        .setTitle('🏆 Victoire !')
-        .setDescription(`${winner} a gagné !\n\n${renderBoard(game.board)}\n\nParticipants : ${playerNames.join(' vs ')}`)
-        .setColor(0x00ff00)
-        .setTimestamp();
+  .setTitle('🏆 Victoire !')
+  .setDescription(`<@${winnerId}> a gagné !\n\n${renderBoard(game.board)}\n\nParticipants : ${game.players.map(id => `<@${id}>`).join(' vs ')}`)
+  .setColor(0x00ff00)
+  .setTimestamp();
+
       await message.channel.send({ embeds: [victoryEmbed] });
       delete games[channelId];
-      return saveGames(games);
+      return saveGames(data);
     }
 
     if (game.board.flat().every(cell => cell !== EMPTY)) {
@@ -111,10 +142,10 @@ module.exports = {
         .setTimestamp();
       await message.channel.send({ embeds: [drawEmbed] });
       delete games[channelId];
-      return saveGames(games);
+      return saveGames(data);
     }
 
     game.turn = game.turn === 1 ? 2 : 1;
-    saveGames(games);
+    saveGames(data);
   },
 };

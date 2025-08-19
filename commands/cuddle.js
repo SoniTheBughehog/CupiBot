@@ -32,8 +32,10 @@ module.exports = {
 
     // message à afficher : si le gif a "message" on prend ça, sinon message par défaut
     const description = gif?.message 
-      ? gif.message.replace(/\{author\}/g, message.author.username).replace(/\{user\}/g, user.username)
-      : `${message.author} envoie un gros câlin à ${user}`;
+  ? gif.message
+      .replace(/\{author\}/g, message.author.toString())
+      .replace(/\{user\}/g, user.toString())
+  : `${message.author} envoie un gros câlin à ${user}`;
 
     const embed = new EmbedBuilder()
       .setColor('#ff69b4')
