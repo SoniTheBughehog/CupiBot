@@ -133,6 +133,7 @@ module.exports = {
 
       default:
         return message.channel.send({
+          content: `<@${userId}>`,
           embeds: [createEmbed({ title: 'Commande inconnue', description: 'Commandes disponibles : `add` | `list` | `del` | `setchannel`', error: true })]
         });
     }
