@@ -30,7 +30,7 @@ function createEmbed({ title, description, color = '#2196f3', error = false, foo
 }
 
 // --- Liste des notes ---
-function notesListEmbed(user, notes) {
+function notesListEmbed(userID, notes) {
   if (!notes || notes.length === 0) {
     return createEmbed({
       title: '📭 Aucune note',
@@ -39,17 +39,8 @@ function notesListEmbed(user, notes) {
     })
   }
 
-  if (notes.length === 1) {
-    return createEmbed({
-      title: `📋 Note unique de <@${user.id}>`,
-      description: notes[0].sujet,
-      color: '#2196f3',
-      footer: '1 note'
-    })
-  }
-
   return createEmbed({
-    title: `📋 Tes notes (<@${userId}>)`,
+    title: `📋 Tes notes (<@${userID}>)`,
     description: notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n'),
     color: '#2196f3',
     footer: `Total : ${notes.length} notes`
@@ -70,7 +61,7 @@ module.exports = {
     if (!args.length) {
       return message.channel.send({
         content: `<@${userId}>`, // vrai ping
-        embeds: [notesListEmbed(message.author, userData.notes)]
+        embeds: [notesListEmbed(message.author.id, userData.notes)]
       })
     }
 
@@ -97,7 +88,8 @@ module.exports = {
 
       case 'list':
         return message.channel.send({
-          embeds: [notesListEmbed(message.author, userData.notes)]
+          content: `<@${userID}>`,
+          embeds: [notesListEmbed(userID, userData.notes)]
         })
 
       case 'del': {
