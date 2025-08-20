@@ -7,7 +7,7 @@ const config = require('./config.json');
 
 const { listCalls } = require('./commands/callnote');
 const { listCalendar } = require('./commands/calendar');
-const { listNotes, getAllNotes } = require('./commands/note');
+const { sendNotesCron } = require('./commands/note');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -44,21 +44,6 @@ async function sendCallnotesCron() {
   await sendEmbed(config.reminderChannelId, embed);
 }
 
-async function sendNotesCron() {
-  const allNotes = getAllNotes();
-  for (const { channelId, notes, userId } of allNotes) {
-    const user = { id: userId, username: userId };
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel) continue;
-
-    await channel.send({
-      content: `<@${userId}>`, // ping ici
-      embeds: [listNotes(user)]
-    });
-  }
-}
-
-
 async function sendCalendarCron(){
   if (!config.reminderChannelId) return;
   const embed = listCalendar({ username: 'Calendrier' }); // utilisateur fictif pour le footer
@@ -72,7 +57,7 @@ client.once('ready', () => {
   if (!config.reminderChannelId) console.warn('⚠️ reminderChannelId non configuré.');
 
   cron.schedule('0 22 * * *', sendCallnotesCron, { timezone: 'Europe/Paris' });
-  cron.schedule('0 18 * * *', sendNotesCron, { timezone: 'Europe/Paris' });
+  cron.schedule('0 18 * * *', sendNotesCron(client), { timezone: 'Europe/Paris' });
   cron.schedule('0 10 * * *', sendCalendarCron, { timezone: 'Europe/Paris' });
 });
 
