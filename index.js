@@ -45,19 +45,6 @@ async function sendEmbed(channelId, embed) {
   }
 }
 
-// --- Crons ---
-async function sendCallnotesCron() {
-  if (!config.reminderChannelId) return;
-  const embed = listCalls({ username: "Appel" }); // utilisateur fictif pour le footer
-  await sendEmbed(config.reminderChannelId, embed);
-}
-
-async function sendCalendarCron() {
-  if (!config.reminderChannelId) return;
-  const embed = listCalendar({ username: "Calendrier" }); // utilisateur fictif pour le footer
-  await sendEmbed(config.reminderChannelId, embed);
-}
-
 // --- Ready ---
 client.once("ready", () => {
   console.log(`Connecté en tant que ${client.user.tag}`);
