@@ -4,6 +4,7 @@ const { EmbedBuilder } = require('discord.js')
 
 const filePath = path.join(__dirname, '..', 'data', 'calendar.json')
 
+// --- Lecture / écriture ---
 function readCalendar() {
   if (!fs.existsSync(filePath)) return []
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
@@ -13,93 +14,100 @@ function saveCalendar(data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
 }
 
+// --- Utilitaires date ---
 function parseDate(dateStr) {
   const [day, month, year] = dateStr.split('/').map(Number)
   if (!day || !month || !year) return null
-  return new Date(year, month - 1, day)
+  return { year, month, day }
 }
 
-function formatDate(date) {
-  return date.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
+function formatDate(dateObj) {
+  const day = String(dateObj.day).padStart(2, '0')
+  const month = String(dateObj.month).padStart(2, '0')
+  return `${day}/${month}/${dateObj.year}`
 }
 
-function formatCountdown(target) {
-  const now = new Date()
-  const diffMs = target - now
-  if (diffMs < 0) return null
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24)
-  const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60)
-  return `${diffDays}j ${diffHours}h ${diffMinutes}m`
+// Compare deux dates simples (jour/mois/année)
+function isSameDay(a, b) {
+  return a.year === b.year && a.month === b.month && a.day === b.day
 }
 
+// Retourne le nombre de jours restants
+function daysRemaining(target) {
+  const today = new Date()
+  const targetDate = new Date(target.year, target.month - 1, target.day)
+  const diffMs = targetDate - new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+// --- Embeds ---
+function createErrorEmbed(msg) {
+  return new EmbedBuilder().setTitle('❌ Erreur').setDescription(msg).setColor('#ff0000').setTimestamp()
+}
+
+function createInfoEmbed(title, msg, color = '#2196f3') {
+  return new EmbedBuilder().setTitle(title).setDescription(msg).setColor(color).setTimestamp()
+}
+
+// --- Embed calendrier ---
 function getCalendarEmbed(calendar) {
-  const embed = new EmbedBuilder()
-    .setTitle('📅 Calendrier')
-    .setColor('#03a9f4')
+  const today = new Date()
+  const todayObj = { year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() }
 
-  if (calendar.length === 0) {
-    embed.setDescription('Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
-  } else {
-    embed.setDescription(
-      calendar.map((entry, i) => {
-        const date = new Date(entry.date)
-        const countdown = formatCountdown(date)
-        const today = new Date()
-        const isToday =
-          date.getDate() === today.getDate() &&
-          date.getMonth() === today.getMonth() &&
-          date.getFullYear() === today.getFullYear()
-
-        if (isToday) {
-          return `🎉 **${i + 1}. AUJOURD'HUI : ${formatDate(date)} → ${entry.reason.toUpperCase()} !!!** 🎉`
-        }
-
-        return `**${i + 1}.** ${formatDate(date)} → ${entry.reason}` +
-          (countdown ? ` (_${countdown} restants_)` : ' _(date passée, sera supprimée la prochaine fois)_')
-      }).join('\n')
-    )
+  if (!calendar || calendar.length === 0) {
+    return createInfoEmbed('📅 Calendrier', 'Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
   }
-  return embed
+
+  const description = calendar.map((entry, i) => {
+    const remaining = daysRemaining(entry.date)
+    if (isSameDay(entry.date, todayObj)) {
+      return `🎉 **${i + 1}. AUJOURD'HUI : ${formatDate(entry.date)} → ${entry.reason.toUpperCase()} !!!** 🎉`
+    }
+    return `**${i + 1}.** ${formatDate(entry.date)} → ${entry.reason}` +
+      (remaining > 0 ? ` (_${remaining} jours restants_)` : ' _(date passée, sera supprimée la prochaine fois)_')
+  }).join('\n')
+
+  return createInfoEmbed('📅 Calendrier', description)
 }
 
+// --- Fonctions réutilisables ---
+function listCalendar() {
+  let calendar = readCalendar()
+
+  // suppression auto des dates passées
+  const today = new Date()
+  const todayObj = { year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() }
+  calendar = calendar.filter(entry => {
+    const remaining = daysRemaining(entry.date)
+    return remaining >= 0
+  })
+  saveCalendar(calendar)
+
+  return getCalendarEmbed(calendar)
+}
+
+// --- Commande principale ---
 module.exports = {
   name: 'calendar',
-  description: 'Gérer un calendrier avec décompte',
+  description: 'Gérer un calendrier avec décompte (jours uniquement)',
   readCalendar,
   saveCalendar,
-  formatCountdown,
   parseDate,
   formatDate,
   getCalendarEmbed,
-
-  // Fonction utilitaire réutilisable ailleurs
-  listCalendar: () => {
-    const calendar = readCalendar()
-
-    // suppression auto des dates déjà passées
-    const now = new Date()
-    const updated = calendar.filter(entry => new Date(entry.date) >= now)
-    if (updated.length !== calendar.length) saveCalendar(updated)
-
-    return getCalendarEmbed(updated)
-  },
+  listCalendar,
 
   execute(message, args) {
     let calendar = readCalendar()
-    const now = new Date()
+    const today = new Date()
+    const todayObj = { year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() }
 
-    // Suppression auto des dates passées
-    calendar = calendar.filter(entry => new Date(entry.date) >= now)
+    // suppression auto (uniquement < aujourd'hui)
+    calendar = calendar.filter(entry => daysRemaining(entry.date) >= 0)
     saveCalendar(calendar)
 
     if (args.length === 0) {
-      const embed = getCalendarEmbed(calendar)
-      return message.channel.send({ embeds: [embed] })
+      return message.channel.send({ embeds: [getCalendarEmbed(calendar)] })
     }
 
     const sub = args.shift().toLowerCase()
@@ -107,46 +115,43 @@ module.exports = {
     if (sub === 'add') {
       const dateStr = args.shift()
       const reason = args.join(' ')
-      if (!dateStr || !reason) return message.channel.send('❌ Usage : `!calendar add JJ/MM/YYYY raison`')
+      if (!dateStr || !reason)
+        return message.channel.send({ embeds: [createErrorEmbed('Usage : `!calendar add JJ/MM/YYYY raison`')] })
 
       const date = parseDate(dateStr)
-      if (!date || isNaN(date.getTime())) return message.channel.send('❌ Date invalide. Utilise le format JJ/MM/YYYY.')
+      if (!date) return message.channel.send({ embeds: [createErrorEmbed('Date invalide. Utilise le format JJ/MM/YYYY.')] })
 
-      calendar.push({ date: date.toISOString(), reason, addedBy: message.author.tag })
+      calendar.push({ date, reason, addedBy: message.author.tag })
       saveCalendar(calendar)
 
-      const embed = new EmbedBuilder()
-        .setTitle('✅ Date ajoutée')
-        .setColor('#4caf50')
-        .setDescription(`**Date :** ${formatDate(date)}\n**Raison :** ${reason}`)
-        .setFooter({ text: `Ajouté par ${message.author.tag}` })
-        .setTimestamp()
-
-      return message.channel.send({ embeds: [embed] })
+      return message.channel.send({
+        embeds: [createInfoEmbed('✅ Date ajoutée', `**Date :** ${formatDate(date)}\n**Raison :** ${reason}`, '#4caf50')]
+      })
     }
 
     if (sub === 'del') {
       const num = parseInt(args[0])
-      if (isNaN(num) || num < 1 || num > calendar.length) return message.channel.send('❌ Numéro invalide. Vérifie la liste avec `!calendar`.')
+      if (isNaN(num) || num < 1 || num > calendar.length)
+        return message.channel.send({ embeds: [createErrorEmbed('Numéro invalide. Vérifie la liste avec `!calendar`.')] })
 
       const removed = calendar.splice(num - 1, 1)
       saveCalendar(calendar)
 
-      const embed = new EmbedBuilder()
-        .setTitle('🗑️ Date supprimée')
-        .setColor('#f44336')
-        .setDescription(`**Date :** ${formatDate(new Date(removed[0].date))}\n**Raison :** ${removed[0].reason}`)
-        .setFooter({ text: `Supprimé par ${message.author.tag}` })
-        .setTimestamp()
-
-      return message.channel.send({ embeds: [embed] })
+      return message.channel.send({
+        embeds: [createInfoEmbed(
+          '🗑️ Date supprimée',
+          `**Date :** ${formatDate(removed[0].date)}\n**Raison :** ${removed[0].reason}`,
+          '#f44336'
+        )]
+      })
     }
 
     if (sub === 'list') {
-      const embed = getCalendarEmbed(calendar)
-      return message.channel.send({ embeds: [embed] })
+      return message.channel.send({ embeds: [getCalendarEmbed(calendar)] })
     }
 
-    return message.channel.send('❌ Commande inconnue. Sous-commandes : add | del | list')
+    return message.channel.send({
+      embeds: [createErrorEmbed('Commande inconnue. Sous-commandes : `add` | `del` | `list`')]
+    })
   }
 }
