@@ -41,7 +41,7 @@ function notesListEmbed(user, notes) {
 
   if (notes.length === 1) {
     return createEmbed({
-      title: `📋 Note unique de ${user.username}`,
+      title: `📋 Note unique de <@${user.id}>`,
       description: notes[0].sujet,
       color: '#2196f3',
       footer: '1 note'
@@ -49,7 +49,7 @@ function notesListEmbed(user, notes) {
   }
 
   return createEmbed({
-    title: `📋 Tes notes (${user.username})`,
+    title: `📋 Tes notes (<@${userId}>)`,
     description: notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n'),
     color: '#2196f3',
     footer: `Total : ${notes.length} notes`
@@ -89,7 +89,7 @@ module.exports = {
         return message.channel.send({
           embeds: [createEmbed({
             title: 'Note ajoutée 📌',
-            description: `**${sujet}**\n\nAjoutée par *${message.author.tag}*`,
+            description: `**${sujet}**`,
             color: '#4caf50'
           })]
         })
@@ -97,7 +97,6 @@ module.exports = {
 
       case 'list':
         return message.channel.send({
-          content: `<@${userId}>`, // vrai ping
           embeds: [notesListEmbed(message.author, userData.notes)]
         })
 
@@ -143,19 +142,4 @@ module.exports = {
       .filter(([_, userData]) => userData.channelId && Array.isArray(userData.notes) && userData.notes.length)
       .map(([userId, userData]) => ({ userId, channelId: userData.channelId, notes: userData.notes }))
   },
-
-  // --- Cron avec vrai ping ---
-  async sendNotesCron(client) {
-    const allNotes = module.exports.getAllNotes()
-    for (const { channelId, notes, userId } of allNotes) {
-      const channel = await client.channels.fetch(channelId).catch(() => null)
-      if (!channel) continue
-      const user = { id: userId, username: `<@${userId}>` } // username pour affichage embed
-
-      await channel.send({
-        content: `<@${userId}>`, // vrai ping
-        embeds: [module.exports.listNotes(user)] // affichage
-      })
-    }
-  }
 }
