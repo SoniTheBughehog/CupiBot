@@ -1,13 +1,13 @@
-const fs = require('fs');
-const path = require('path');
-const { EmbedBuilder } = require('discord.js');
+const fs = require("fs");
+const path = require("path");
+const { EmbedBuilder } = require("discord.js");
 
-const filePath = path.join(__dirname, '..', 'data', 'memory.json');
+const filePath = path.join(__dirname, "..", "data", "memory.json");
 
 function readMemory() {
   if (!fs.existsSync(filePath)) return {};
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
     return {};
   }
@@ -17,7 +17,13 @@ function saveMemory(memories) {
   fs.writeFileSync(filePath, JSON.stringify(memories, null, 2));
 }
 
-function createEmbed({ title, description, color = 0x3498db, footer, timestamp = true }) {
+function createEmbed({
+  title,
+  description,
+  color = 0x3498db,
+  footer,
+  timestamp = true,
+}) {
   const embed = new EmbedBuilder()
     .setTitle(title)
     .setDescription(description)
@@ -30,9 +36,9 @@ function createEmbed({ title, description, color = 0x3498db, footer, timestamp =
 function memoryListEmbed(user, list) {
   if (!list || list.length === 0) {
     return createEmbed({
-      title: '📭 Aucun souvenir enregistré',
-      description: 'Ajoute ton premier souvenir avec :\n`!memory add <texte>`',
-      color: 0x95a5a6
+      title: "📭 Aucun souvenir enregistré",
+      description: "Ajoute ton premier souvenir avec :\n`!memory add <texte>`",
+      color: 0x95a5a6,
     });
   }
 
@@ -41,21 +47,21 @@ function memoryListEmbed(user, list) {
       title: `📚 Souvenir unique de ${user.username}`,
       description: list[0],
       color: 0x3498db,
-      footer: '1 souvenir'
+      footer: "1 souvenir",
     });
   }
 
   return createEmbed({
     title: `📚 Souvenirs de ${user.username}`,
-    description: list.map((m, i) => `**${i + 1}.** ${m}`).join('\n'),
+    description: list.map((m, i) => `**${i + 1}.** ${m}`).join("\n"),
     color: 0x3498db,
-    footer: `Total : ${list.length} souvenirs`
+    footer: `Total : ${list.length} souvenirs`,
   });
 }
 
 module.exports = {
-  name: 'memory',
-  description: 'Gère tes souvenirs personnels',
+  name: "memory",
+  description: "Gère tes souvenirs personnels",
   execute(message, args) {
     const memories = readMemory();
     const userId = message.author.id;
@@ -66,34 +72,35 @@ module.exports = {
       return message.channel.send({
         embeds: [
           createEmbed({
-            title: '❓ Commande Memory',
+            title: "❓ Commande Memory",
             description: [
-              '**Utilisation :**',
-              '`!memory add <texte>` → Ajouter un souvenir',
-              '`!memory list` → Voir tes souvenirs',
-              '`!memory del <num>` → Supprimer un souvenir'
-            ].join('\n'),
+              "**Utilisation :**",
+              "`!memory add <texte>` → Ajouter un souvenir",
+              "`!memory list` → Voir tes souvenirs",
+              "`!memory del <num>` → Supprimer un souvenir",
+            ].join("\n"),
             color: 0xf1c40f,
-            footer: `Demandé par ${message.author.tag}`
-          })
-        ]
+            footer: `Demandé par ${message.author.tag}`,
+          }),
+        ],
       });
     }
 
     const subcommand = args.shift().toLowerCase();
 
     switch (subcommand) {
-      case 'add': {
-        const text = args.join(' ').trim();
+      case "add": {
+        const text = args.join(" ").trim();
         if (!text) {
           return message.channel.send({
             embeds: [
               createEmbed({
-                title: '⚠️ Erreur',
-                description: 'Merci de préciser un souvenir à enregistrer.\n\n**Exemple :** `!memory add Mon premier concert`',
-                color: 0xe74c3c
-              })
-            ]
+                title: "⚠️ Erreur",
+                description:
+                  "Merci de préciser un souvenir à enregistrer.\n\n**Exemple :** `!memory add Mon premier concert`",
+                color: 0xe74c3c,
+              }),
+            ],
           });
         }
         memories[userId].push(text);
@@ -102,34 +109,36 @@ module.exports = {
         return message.channel.send({
           embeds: [
             createEmbed({
-              title: '💾 Souvenir ajouté',
+              title: "💾 Souvenir ajouté",
               description: `"${text}"`,
               color: 0x2ecc71,
-              footer: `Ajouté par ${message.author.tag}`
-            })
-          ]
+              footer: `Ajouté par ${message.author.tag}`,
+            }),
+          ],
         });
       }
 
-      case 'list':
-        return message.channel.send({ embeds: [memoryListEmbed(message.author, memories[userId])] });
+      case "list":
+        return message.channel.send({
+          embeds: [memoryListEmbed(message.author, memories[userId])],
+        });
 
-      case 'del': {
+      case "del": {
         const num = parseInt(args[0], 10);
         const list = memories[userId];
         if (isNaN(num) || num < 1 || num > list.length) {
           return message.channel.send({
             embeds: [
               createEmbed({
-                title: '⚠️ Numéro invalide',
+                title: "⚠️ Numéro invalide",
                 description: [
-                  'Merci d’indiquer un numéro valide correspondant à un souvenir existant.',
-                  '**Exemple :** `!memory del 2`',
-                  `Tu as actuellement **${list.length}** souvenir(s).`
-                ].join('\n'),
-                color: 0xe74c3c
-              })
-            ]
+                  "Merci d’indiquer un numéro valide correspondant à un souvenir existant.",
+                  "**Exemple :** `!memory del 2`",
+                  `Tu as actuellement **${list.length}** souvenir(s).`,
+                ].join("\n"),
+                color: 0xe74c3c,
+              }),
+            ],
           });
         }
 
@@ -139,12 +148,12 @@ module.exports = {
         return message.channel.send({
           embeds: [
             createEmbed({
-              title: '🗑️ Souvenir supprimé',
+              title: "🗑️ Souvenir supprimé",
               description: `"${removed}"`,
               color: 0xe74c3c,
-              footer: `Supprimé par ${message.author.tag}`
-            })
-          ]
+              footer: `Supprimé par ${message.author.tag}`,
+            }),
+          ],
         });
       }
 
@@ -152,17 +161,17 @@ module.exports = {
         return message.channel.send({
           embeds: [
             createEmbed({
-              title: '❌ Commande inconnue',
+              title: "❌ Commande inconnue",
               description: [
-                'Sous-commandes disponibles :',
-                '`add <texte>` → Ajouter un souvenir',
-                '`list` → Voir tes souvenirs',
-                '`del <num>` → Supprimer un souvenir'
-              ].join('\n'),
+                "Sous-commandes disponibles :",
+                "`add <texte>` → Ajouter un souvenir",
+                "`list` → Voir tes souvenirs",
+                "`del <num>` → Supprimer un souvenir",
+              ].join("\n"),
               color: 0xe67e22,
-              footer: `Demandé par ${message.author.tag}`
-            })
-          ]
+              footer: `Demandé par ${message.author.tag}`,
+            }),
+          ],
         });
     }
   },
@@ -170,5 +179,5 @@ module.exports = {
   listMemories: (user) => {
     const memories = readMemory();
     return memoryListEmbed(user, memories[user.id] || []);
-  }
+  },
 };

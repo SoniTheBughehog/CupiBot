@@ -4,7 +4,9 @@
   "description": "Just a chill Discord bot for me and my girlfriend (and friends) to add some fun little features and commands.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "format": "prettier --write '**/*.js'"
   },
   "keywords": [],
   "author": "",
@@ -13,5 +15,11 @@
     "discord.js": "^14.21.0",
     "dotenv": "^17.2.1",
     "node-cron": "^4.2.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.6.2"
   }
 }
