@@ -58,17 +58,27 @@ function getCalendarEmbed(calendar) {
     return createInfoEmbed('📅 Calendrier', 'Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`')
   }
 
-  const description = calendar.map((entry, i) => {
+  // Séparer les événements d'aujourd'hui et les autres
+  const todayEvents = []
+  const upcomingEvents = []
+
+  for (const entry of calendar) {
     const remaining = daysRemaining(entry.date)
     if (isSameDay(entry.date, todayObj)) {
-      return `🎉 **${i + 1}. AUJOURD'HUI : ${formatDate(entry.date)} → ${entry.reason.toUpperCase()} !!!** 🎉`
+      todayEvents.push(`🎉 AUJOURD'HUI → ${entry.reason.toUpperCase()} !!! 🎉`)
+    } else {
+      upcomingEvents.push(
+        `**${upcomingEvents.length + 1}.** ${formatDate(entry.date)} → ${entry.reason}` +
+        (remaining > 0 ? ` (_${remaining} jours restants_)` : ' _(date passée, sera supprimée la prochaine fois)_')
+      )
     }
-    return `**${i + 1}.** ${formatDate(entry.date)} → ${entry.reason}` +
-      (remaining > 0 ? ` (_${remaining} jours restants_)` : ' _(date passée, sera supprimée la prochaine fois)_')
-  }).join('\n')
+  }
+
+  const description = [...todayEvents, ...upcomingEvents].join('\n')
 
   return createInfoEmbed('📅 Calendrier', description)
 }
+
 
 // --- Fonctions réutilisables ---
 function listCalendar() {
