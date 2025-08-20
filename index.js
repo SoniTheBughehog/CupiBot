@@ -47,10 +47,17 @@ async function sendCallnotesCron() {
 async function sendNotesCron() {
   const allNotes = getAllNotes();
   for (const { channelId, notes, userId } of allNotes) {
-    const user = { id: userId, username: `Utilisateur` };
-    await sendEmbed(channelId, listNotes(user));
+    const user = { id: userId, username: userId };
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel) continue;
+
+    await channel.send({
+      content: `<@${userId}>`, // ping ici
+      embeds: [listNotes(user)]
+    });
   }
 }
+
 
 async function sendCalendarCron(){
   if (!config.reminderChannelId) return;

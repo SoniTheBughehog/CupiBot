@@ -41,7 +41,7 @@ function notesListEmbed(user, notes) {
 
   if (notes.length === 1) {
     return createEmbed({
-      title: `📋 Note unique de ${user.username}`,
+      title: `📋 Note unique de <@${user.id}>`,
       description: notes[0].sujet,
       color: '#2196f3',
       footer: '1 note'
@@ -49,7 +49,7 @@ function notesListEmbed(user, notes) {
   }
 
   return createEmbed({
-    title: `📋 Tes notes (${user.username})`,
+    title: `📋 Les notes de <@${user.id}>`,
     description: notes.map((n, i) => `**${i + 1}.** ${n.sujet}`).join('\n'),
     color: '#2196f3',
     footer: `Total : ${notes.length} notes`
