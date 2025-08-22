@@ -52,7 +52,7 @@ client.once("ready", () => {
   if (!config.reminderChannelId)
     console.warn("⚠️ reminderChannelId non configuré.");
 
-  cron.schedule("0 22 * * *", () => sendCallnotesCron(client), {
+  cron.schedule("0 20 * * *", () => sendCallnotesCron(client), {
     timezone: "Europe/Paris",
   });
   cron.schedule("0 18 * * *", () => sendNotesCron(client), {

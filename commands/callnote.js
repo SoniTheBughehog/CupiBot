@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
+const { sendEmbed } = require("../utils/sendEmbed");
 
 const filePath = path.join(__dirname, "..", "data", "callnote.json");
 
