@@ -73,11 +73,16 @@ function getCalendarEmbed(calendar) {
   if (!calendar || calendar.length === 0) {
     return createInfoEmbed(
       "📅 Calendrier",
-      "Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`",
+      "Aucune date enregistrée. Ajoute-en avec `!calendar add JJ/MM/YYYY raison`"
     );
   }
 
-  // Séparer les événements d'aujourd'hui et les autres
+  calendar.sort((a, b) => {
+    const dateA = new Date(a.date.year, a.date.month - 1, a.date.day);
+    const dateB = new Date(b.date.year, b.date.month - 1, b.date.day);
+    return dateA - dateB;
+  });
+
   const todayEvents = [];
   const upcomingEvents = [];
 
@@ -90,15 +95,15 @@ function getCalendarEmbed(calendar) {
         `**${upcomingEvents.length + 1}.** ${formatDate(entry.date)} → ${entry.reason}` +
           (remaining > 0
             ? ` (_${remaining} jours restants_)`
-            : " _(date passée, sera supprimée la prochaine fois)_"),
+            : " _(date passée, sera supprimée la prochaine fois)_")
       );
     }
   }
 
   const description = [...todayEvents, ...upcomingEvents].join("\n");
-
   return createInfoEmbed("📅 Calendrier", description);
 }
+
 
 // --- Fonctions réutilisables ---
 function listCalendar() {
@@ -106,13 +111,6 @@ function listCalendar() {
   calendar = calendar.filter((entry) => {
     const remaining = daysRemaining(entry.date);
     return remaining >= 0;
-  });
-
-  // Tri par date croissante
-  calendar.sort((a, b) => {
-    const dateA = new Date(a.date.year, a.date.month - 1, a.date.day);
-    const dateB = new Date(b.date.year, b.date.month - 1, b.date.day);
-    return dateA - dateB;
   });
 
   saveCalendar(calendar);
