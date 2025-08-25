@@ -107,10 +107,19 @@ function listCalendar() {
     const remaining = daysRemaining(entry.date);
     return remaining >= 0;
   });
+
+  // Tri par date croissante
+  calendar.sort((a, b) => {
+    const dateA = new Date(a.date.year, a.date.month - 1, a.date.day);
+    const dateB = new Date(b.date.year, b.date.month - 1, b.date.day);
+    return dateA - dateB;
+  });
+
   saveCalendar(calendar);
 
   return getCalendarEmbed(calendar);
 }
+
 
 // --- Commande principale ---
 module.exports = {
