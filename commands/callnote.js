@@ -181,14 +181,14 @@ module.exports = {
       }
     }
   },
-  listCalls: (user) => {
+  listCalls (user) {
     const calls = readCalls();
     return listCallsEmbed(calls, user);
   },
 
   async sendCallnotesCron(client) {
     if (!config.reminderChannelId) return;
-    const embed = listCalls({ username: "Appel" });
-    await sendEmbed(config.reminderChannelId, embed, client);
+    const embed = module.exports.listCalls({ tag: "Liste d'appel automatique" });
+    await sendEmbed(client, config.reminderChannelId, embed);
   },
 };

@@ -103,14 +103,6 @@ function getCalendarEmbed(calendar) {
 // --- Fonctions réutilisables ---
 function listCalendar() {
   let calendar = readCalendar();
-
-  // suppression auto des dates passées
-  const today = new Date();
-  const todayObj = {
-    year: today.getFullYear(),
-    month: today.getMonth() + 1,
-    day: today.getDate(),
-  };
   calendar = calendar.filter((entry) => {
     const remaining = daysRemaining(entry.date);
     return remaining >= 0;
@@ -133,13 +125,6 @@ module.exports = {
 
   execute(message, args) {
     let calendar = readCalendar();
-    const today = new Date();
-    const todayObj = {
-      year: today.getFullYear(),
-      month: today.getMonth() + 1,
-      day: today.getDate(),
-    };
-
     // suppression auto (uniquement < aujourd'hui)
     calendar = calendar.filter((entry) => daysRemaining(entry.date) >= 0);
     saveCalendar(calendar);
@@ -221,7 +206,7 @@ module.exports = {
   },
   async sendCalendarCron(client) {
     if (!config.reminderChannelId) return;
-    const embed = listCalendar({ username: "Calendrier" }); // utilisateur fictif pour le footer
-    await sendEmbed(config.reminderChannelId, embed, client);
+    const embed = listCalendar();
+    await sendEmbed(client, config.reminderChannelId, embed);
   },
 };
