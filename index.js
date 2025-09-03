@@ -57,36 +57,7 @@ client.on("messageCreate", async (message) => {
     return message.channel.send("meow");
   }
 
-  client.on("interactionCreate", async (interaction) => {
-    if (interaction.customId?.startsWith('note_')) {
-      const noteCommand = client.commands.get('note');
-      if (noteCommand?.handleInteraction) {
-        await noteCommand.handleInteraction(interaction);
-      }
-    }
-  });
-
-  // Dans index.js, après client.on("messageCreate"...)
-client.on("interactionCreate", async (interaction) => {
-  if (interaction.customId?.startsWith('cal_')) {
-    const calendarCommand = client.commands.get('calendar');
-    if (calendarCommand?.handleInteraction) {
-      await calendarCommand.handleInteraction(interaction);
-    }
-  }
-
-  client.on("interactionCreate", async (interaction) => {
-  // Gestion des boutons mémoires
-  if (interaction.customId?.startsWith('memory_')) {
-    const memoryCommand = client.commands.get('memory');
-    if (memoryCommand?.handleInteraction) {
-      await memoryCommand.handleInteraction(interaction);
-    }
-  }
-  
-  // Autres interactions...
-});
-
+  // Command handling
   if (!content.startsWith(prefix)) return;
 
   const args = content.slice(prefix.length).trim().split(/ +/);
@@ -103,6 +74,29 @@ client.on("interactionCreate", async (interaction) => {
       "❌ Une erreur est survenue lors de l’exécution de la commande.",
     );
   }
+});
+
+// --- Interaction handler ---
+client.on("interactionCreate", async (interaction) => {
+  if (interaction.customId?.startsWith('note_')) {
+    const noteCommand = client.commands.get('note');
+    if (noteCommand?.handleInteraction) {
+      await noteCommand.handleInteraction(interaction);
+    }
+  }
+  if (interaction.customId?.startsWith('cal_')) {
+    const calendarCommand = client.commands.get('calendar');
+    if (calendarCommand?.handleInteraction) {
+      await calendarCommand.handleInteraction(interaction);
+    }
+  }
+  if (interaction.customId?.startsWith('memory_')) {
+    const memoryCommand = client.commands.get('memory');
+    if (memoryCommand?.handleInteraction) {
+      await memoryCommand.handleInteraction(interaction);
+    }
+  }
+  // ...
 });
 
 // --- Login avec retry ---
