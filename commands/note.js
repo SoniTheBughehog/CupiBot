@@ -73,7 +73,7 @@ function getUserCategory(userData, categoryName) {
 }
 
 // --- Pagination et Affichage ---
-const NOTES_PER_PAGE = 8;
+const NOTES_PER_PAGE = 5;
 
 function paginateNotes(notes, page = 1) {
   const start = (page - 1) * NOTES_PER_PAGE;

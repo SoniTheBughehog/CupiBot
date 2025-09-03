@@ -66,6 +66,27 @@ client.on("messageCreate", async (message) => {
     }
   });
 
+  // Dans index.js, après client.on("messageCreate"...)
+client.on("interactionCreate", async (interaction) => {
+  if (interaction.customId?.startsWith('cal_')) {
+    const calendarCommand = client.commands.get('calendar');
+    if (calendarCommand?.handleInteraction) {
+      await calendarCommand.handleInteraction(interaction);
+    }
+  }
+
+  client.on("interactionCreate", async (interaction) => {
+  // Gestion des boutons mémoires
+  if (interaction.customId?.startsWith('memory_')) {
+    const memoryCommand = client.commands.get('memory');
+    if (memoryCommand?.handleInteraction) {
+      await memoryCommand.handleInteraction(interaction);
+    }
+  }
+  
+  // Autres interactions...
+});
+
   if (!content.startsWith(prefix)) return;
 
   const args = content.slice(prefix.length).trim().split(/ +/);

@@ -19,7 +19,7 @@ A chill Discord bot for me and my girlfriend, designed to add fun features and i
 
 ## 📋 Tasks
 - **Title:** Memory – Shared List  
-    **Description:** Create a shared list feature for storing and organizing memorable moments or notes that users want to keep.
+    **Description:** Create a shared list feature for storing and organizing memorable moments or notes that users want to keep (add date,better display).
 
 ---
 
@@ -40,6 +40,11 @@ A chill Discord bot for me and my girlfriend, designed to add fun features and i
 
 - **Title:** Enhance Callnote  
     **Description:** Optimize and expand the callnote feature for improved usability and functionality.
+
+---
+
+- **Title:** Enhance Calendar  
+    **Description:** True Calendar display
 
 ## ✅ Status
 - [x] In Progress
