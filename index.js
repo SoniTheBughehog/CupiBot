@@ -57,6 +57,15 @@ client.on("messageCreate", async (message) => {
     return message.channel.send("meow");
   }
 
+  client.on("interactionCreate", async (interaction) => {
+    if (interaction.customId?.startsWith('note_')) {
+      const noteCommand = client.commands.get('note');
+      if (noteCommand?.handleInteraction) {
+        await noteCommand.handleInteraction(interaction);
+      }
+    }
+  });
+
   if (!content.startsWith(prefix)) return;
 
   const args = content.slice(prefix.length).trim().split(/ +/);
