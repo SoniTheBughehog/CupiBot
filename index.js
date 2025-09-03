@@ -30,21 +30,6 @@ fs.readdirSync(commandsPath)
       client.commands.set(cmd.name, cmd);
   });
 
-// --- Fonction utilitaire pour envoyer un embed ---
-async function sendEmbed(channelId, embed) {
-  if (!channelId) return;
-  try {
-    const channel = await client.channels.fetch(channelId);
-    if (!channel) return;
-    await channel.send({ embeds: [embed] });
-  } catch (err) {
-    console.error(
-      `Erreur en envoyant un embed sur le channel ${channelId}:`,
-      err,
-    );
-  }
-}
-
 // --- Ready ---
 client.once("ready", () => {
   console.log(`Connecté en tant que ${client.user.tag}`);
