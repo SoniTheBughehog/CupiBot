@@ -135,14 +135,15 @@ function createErrorEmbed(title, description) {
 // --- Catégories ---
 const CATEGORY_EMOJIS = {
   "général": "📝",
-  "amour": "❤️",
+  "voyage": "✈️",
+  "travail": "💼",
   "famille": "👨‍👩‍👧‍👦",
-  "voyages / sorties": "🌍",
-  "quotidien": "🏡",
-  "événements spéciaux": "🎉",
-  "amis": "👯",
-  "humour": "😂",
-  "émotions fortes": "🥹"
+  "amis": "👥",
+  "école": "🎓",
+  "sport": "⚽",
+  "loisir": "🎮",
+  "santé": "🏥",
+  "projet": "🎯"
 };
 
 function getCategoryEmoji(category) {
@@ -166,7 +167,7 @@ function getCategoryColor(category) {
 }
 
 // --- Pagination ---
-const MEMORIES_PER_PAGE = 15;
+const MEMORIES_PER_PAGE = 8;
 
 function paginateMemories(memories, page = 1) {
   const start = (page - 1) * MEMORIES_PER_PAGE;
@@ -449,7 +450,7 @@ module.exports = {
       const sorted = filtered.sort((a, b) => {
         const da = getMemoryDateForSorting(a);
         const db = getMemoryDateForSorting(b);
-        return da - db; 
+        return da - db; // chrono ascendant
       });
 
       const pagination = paginateMemories(sorted);
@@ -461,8 +462,6 @@ module.exports = {
         components: buttons
       });
     }
-  }
-
 
     const sub = args.shift().toLowerCase();
 
