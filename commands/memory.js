@@ -79,15 +79,19 @@ function formatMemoryDate(dateObj) {
 }
 
 function getMemoryDateForSorting(memory) {
-  if (!memory.date) return new Date(0); // Date très ancienne pour les souvenirs sans date
-  
+  if (!memory.date) return new Date(0);
+
+  const y = Number(memory.date.year || 0);
+  const m = Number((memory.date.month || 1)) - 1;
+  const d = Number(memory.date.day || 1);
+
   switch (memory.date.type) {
     case "full":
-      return new Date(memory.date.year, memory.date.month - 1, memory.date.day);
+      return new Date(y, m, d);
     case "month":
-      return new Date(memory.date.year, memory.date.month - 1, 1);
+      return new Date(y, m, 1);
     case "year":
-      return new Date(memory.date.year, 0, 1);
+      return new Date(y, 0, 1);
     default:
       return new Date(0);
   }
@@ -218,25 +222,18 @@ function createNavigationButtons(currentPage, totalPages, userId, sortBy = 'date
 }
 
 // --- Tri des souvenirs ---
-function sortMemoriesByDate(memories) {
-  return memories.sort((a, b) => {
-    const dateA = getMemoryDateForSorting(a);
-    const dateB = getMemoryDateForSorting(b);
-    return dateB.getTime() - dateA.getTime(); // Plus récent en premier
-  });
-}
+function sortMemoriesByDate(memories, newestFirst = true) {
+  return [...memories].sort((a, b) => {
+    const da = getMemoryDateForSorting(a).getTime();
+    const db = getMemoryDateForSorting(b).getTime();
 
-function sortMemoriesByCategory(memories) {
-  return memories.sort((a, b) => {
-    // D'abord par catégorie
-    const catA = (a.category || 'général').toLowerCase();
-    const catB = (b.category || 'général').toLowerCase();
-    if (catA !== catB) return catA.localeCompare(catB);
-    
-    // Puis par date dans chaque catégorie
-    const dateA = getMemoryDateForSorting(a);
-    const dateB = getMemoryDateForSorting(b);
-    return dateB.getTime() - dateA.getTime();
+    if (da === db) {
+      // tie-breaker avec createdAt si même date
+      const ca = new Date(a.createdAt || 0).getTime();
+      const cb = new Date(b.createdAt || 0).getTime();
+      return newestFirst ? cb - ca : ca - cb;
+    }
+    return newestFirst ? db - da : da - db;
   });
 }
 
@@ -446,13 +443,7 @@ module.exports = {
 
     if (!args.length) {
       const filtered = filterMemories(data.memories);
-
-      const sorted = filtered.sort((a, b) => {
-        const da = getMemoryDateForSorting(a);
-        const db = getMemoryDateForSorting(b);
-        return da - db; // chrono ascendant
-      });
-
+      const sorted = sortMemoriesByDate(filtered, false); 
       const pagination = paginateMemories(sorted);
       const embed = formatMemoriesPage(sorted, pagination, 'date');
       const buttons = createNavigationButtons(1, pagination.totalPages, message.author.id, 'date');
