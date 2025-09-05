@@ -68,14 +68,40 @@ function daysRemaining(target) {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-// --- Génération du calendrier visuel ---
+// Calcul des mois/jours restants pour affichage
+function getTimeRemaining(target) {
+  const today = new Date();
+  const targetDate = new Date(target.year, target.month - 1, target.day);
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  
+  const diffMs = targetDate - todayDate;
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (days === 0) return "Aujourd'hui";
+  if (days < 0) return "Passé";
+  
+  if (days < 30) {
+    return `${days} jour${days > 1 ? 's' : ''}`;
+  }
+  
+  const months = Math.floor(days / 30);
+  const remainingDays = days % 30;
+  
+  if (remainingDays === 0) {
+    return `${months} mois`;
+  } else if (months === 0) {
+    return `${days} jours`;
+  } else {
+    return `${months} mois ${remainingDays} jour${remainingDays > 1 ? 's' : ''}`;
+  }
+}
+
+// --- Génération du calendrier visuel (simplifié) ---
 function generateVisualCalendar(year, month, events) {
   const monthNames = [
     "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
   ];
-  
-  const daysOfWeek = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   
   // Premier jour du mois et nombre de jours
   const firstDay = new Date(year, month - 1, 1);
@@ -86,18 +112,16 @@ function generateVisualCalendar(year, month, events) {
   let startDay = firstDay.getDay();
   if (startDay === 0) startDay = 7; // Dimanche = 7 pour placer en fin de semaine
   
-  // Créer la grille du calendrier
+  // Créer la grille du calendrier (plus compacte)
   let calendar = `**${monthNames[month - 1]} ${year}**\n`;
   calendar += "```\n";
-  calendar += daysOfWeek.join("  ") + "\n";
-  calendar += "─".repeat(21) + "\n";
   
   let dayCounter = 1;
   let currentRow = "";
   
   // Première semaine avec espaces pour les jours précédents
   for (let i = 1; i < startDay; i++) {
-    currentRow += "   ";
+    currentRow += "  ";
   }
   
   // Remplir le calendrier
@@ -122,25 +146,24 @@ function generateVisualCalendar(year, month, events) {
     } else if (isToday) {
       dayStr = `(${dayStr.trim()})`; // Aujourd'hui
     } else if (hasEvent) {
-      dayStr = `*${dayStr.trim()}*`; // Événement
+      dayStr = `${dayStr.trim()}*`; // Événement
     }
     
-    currentRow += dayStr.padEnd(3, " ");
+    currentRow += dayStr + " ";
     
-    // Nouvelle ligne après dimanche
+    // Nouvelle ligne après dimanche (7 jours)
     if ((startDay + day - 1) % 7 === 0) {
-      calendar += currentRow + "\n";
+      calendar += currentRow.trim() + "\n";
       currentRow = "";
     }
   }
   
   // Ajouter la dernière ligne si nécessaire
   if (currentRow.trim()) {
-    calendar += currentRow + "\n";
+    calendar += currentRow.trim() + "\n";
   }
   
-  calendar += "```\n";
-  calendar += "**Légende:** `(X)` Aujourd'hui • `*X*` Événement • `[X]` Aujourd'hui + Événement";
+  calendar += "```";
   
   return calendar;
 }
@@ -208,6 +231,38 @@ function createInfoEmbed(title, msg, color = "#2196f3") {
     .setTimestamp();
 }
 
+// --- Aide ---
+function getHelpEmbed() {
+  return createInfoEmbed(
+    "📖 Guide d'utilisation - Calendar Bot",
+    [
+      "**🔸 Ajouter un événement**",
+      "`!calendar add JJ/MM/YYYY <événement>` - Événement simple",
+      "`!calendar add JJ/MM/YYYY HH:MM <événement>` - Avec heure",
+      "",
+      "**🔸 Gérer les événements**",
+      "`!calendar` ou `!calendar view` - Affichage calendrier",
+      "`!calendar list` - Liste détaillée",
+      "`!calendar del <numéro>` - Supprimer",
+      "",
+      "**🔸 Exemples**",
+      "`!calendar add 25/12/2024 Noël`",
+      "`!calendar add 01/01/2025 14:30 Rendez-vous`",
+      "`!calendar del 1` - Supprime le 1er événement",
+      "",
+      "**🔸 Affichage calendrier**",
+      "• `(X)` - Aujourd'hui",
+      "• `X*` - Jour avec événement",  
+      "• `[X]` - Aujourd'hui avec événement",
+      "",
+      "**🔸 Navigation**",
+      "Utilisez les boutons ◀▶ pour naviguer entre les mois",
+      "Bouton 📋 pour basculer vers la liste détaillée"
+    ].join("\n"),
+    "#2ecc71"
+  );
+}
+
 // --- Embed calendrier visuel ---
 function getVisualCalendarEmbed(calendar, year, month) {
   const events = calendar.filter(entry => {
@@ -223,21 +278,17 @@ function getVisualCalendarEmbed(calendar, year, month) {
   
   let eventsList = "";
   if (monthEvents.length > 0) {
-    eventsList = "\n**Événements ce mois-ci :**\n";
+    eventsList = "\n**📅 Événements ce mois-ci :**\n";
     monthEvents
       .sort((a, b) => a.date.day - b.date.day)
       .forEach((event, i) => {
-        const remaining = daysRemaining(event.date);
-        const dateStr = formatDateTime(event.date);
-        let status = "";
+        const timeRemaining = getTimeRemaining(event.date);
+        const dateStr = event.date.hasTime ? 
+          `${String(event.date.day).padStart(2, '0')}/${String(event.date.month).padStart(2, '0')} ${String(event.date.hour).padStart(2, '0')}:${String(event.date.minute).padStart(2, '0')}` :
+          `${String(event.date.day).padStart(2, '0')}/${String(event.date.month).padStart(2, '0')}`;
         
-        if (remaining === 0) {
-          status = " 🎉 **AUJOURD'HUI**";
-        } else if (remaining > 0) {
-          status = ` (dans ${remaining} jour${remaining > 1 ? 's' : ''})`;
-        }
-        
-        eventsList += `• **${event.date.day}** - ${event.reason}${status}\n`;
+        const timeInfo = timeRemaining === "Aujourd'hui" ? " 🎉" : ` (${timeRemaining})`;
+        eventsList += `**${dateStr}** - ${event.reason}${timeInfo}\n`;
       });
   }
   
@@ -248,7 +299,7 @@ function getVisualCalendarEmbed(calendar, year, month) {
   );
 }
 
-// --- Liste classique des événements ---
+// --- Liste classique des événements (triée par date/mois) ---
 function getCalendarListEmbed(calendar) {
   const today = new Date();
   const todayObj = {
@@ -264,33 +315,59 @@ function getCalendarListEmbed(calendar) {
     );
   }
 
+  // Trier par date
   calendar.sort((a, b) => {
     const dateA = new Date(a.date.year, a.date.month - 1, a.date.day);
     const dateB = new Date(b.date.year, b.date.month - 1, b.date.day);
     return dateA - dateB;
   });
 
-  const todayEvents = [];
-  const upcomingEvents = [];
+  // Grouper par mois/année
+  const groupedByMonth = {};
+  const monthNames = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+  ];
 
-  for (const entry of calendar) {
-    const remaining = daysRemaining(entry.date);
-    const dateTimeStr = formatDateTime(entry.date);
-    
-    if (isSameDay(entry.date, todayObj)) {
-      todayEvents.push(`🎉 AUJOURD'HUI → ${entry.reason.toUpperCase()} ${entry.date.hasTime ? `à ${entry.date.hour}:${String(entry.date.minute).padStart(2, '0')}` : ''} !!!`);
-    } else {
-      upcomingEvents.push(
-        `**${upcomingEvents.length + 1}.** ${dateTimeStr} → ${entry.reason}` +
-          (remaining > 0
-            ? ` (_${remaining} jours restants_)`
-            : " _(date passée)_")
-      );
+  calendar.forEach((entry, index) => {
+    const monthKey = `${monthNames[entry.date.month - 1]} ${entry.date.year}`;
+    if (!groupedByMonth[monthKey]) {
+      groupedByMonth[monthKey] = [];
     }
-  }
+    
+    const timeRemaining = getTimeRemaining(entry.date);
+    const dateStr = formatDate(entry.date);
+    const timeStr = entry.date.hasTime ? ` ${String(entry.date.hour).padStart(2, '0')}:${String(entry.date.minute).padStart(2, '0')}` : '';
+    
+    let timeInfo = "";
+    if (timeRemaining === "Aujourd'hui") {
+      timeInfo = " 🎉 **AUJOURD'HUI**";
+    } else if (timeRemaining !== "Passé") {
+      timeInfo = ` (${timeRemaining})`;
+    } else {
+      timeInfo = " _(passé)_";
+    }
+    
+    groupedByMonth[monthKey].push({
+      text: `${dateStr}${timeStr} - ${entry.reason}${timeInfo}`,
+      index: index + 1,
+      isToday: timeRemaining === "Aujourd'hui"
+    });
+  });
 
-  const description = [...todayEvents, ...upcomingEvents].join("\n");
-  return createInfoEmbed("📋 Liste des événements", description);
+  // Construire la description
+  let description = "";
+  Object.keys(groupedByMonth).forEach(monthKey => {
+    const events = groupedByMonth[monthKey];
+    description += `**${monthKey}**\n`;
+    
+    events.forEach(event => {
+      description += `**${event.index}.** ${event.text}\n`;
+    });
+    description += "\n";
+  });
+
+  return createInfoEmbed("📋 Liste des événements", description.trim());
 }
 
 // --- Fonctions réutilisables ---
@@ -340,6 +417,12 @@ module.exports = {
     }
 
     const sub = args.shift().toLowerCase();
+
+    if (sub === "help") {
+      return message.channel.send({
+        embeds: [getHelpEmbed()],
+      });
+    }
 
     if (sub === "add") {
       const dateStr = args.shift();
@@ -431,7 +514,7 @@ module.exports = {
     return message.channel.send({
       embeds: [
         createErrorEmbed(
-          "Commande inconnue. Sous-commandes : `add` | `del` | `list` | `view`",
+          "**Commandes disponibles :**\n`help` - Aide complète\n`add` - Ajouter événement\n`del` - Supprimer\n`list` - Liste détaillée\n`view` - Affichage calendrier",
         ),
       ],
     });
