@@ -135,16 +135,16 @@ function createErrorEmbed(title, description) {
 // --- Catégories ---
 const CATEGORY_EMOJIS = {
   "général": "📝",
-  "voyage": "✈️",
-  "travail": "💼",
+  "amour": "❤️",
   "famille": "👨‍👩‍👧‍👦",
-  "amis": "👥",
-  "école": "🎓",
-  "sport": "⚽",
-  "loisir": "🎮",
-  "santé": "🏥",
-  "projet": "🎯"
+  "voyages / sorties": "🌍",
+  "quotidien": "🏡",
+  "événements spéciaux": "🎉",
+  "amis": "👯",
+  "humour": "😂",
+  "émotions fortes": "🥹"
 };
+
 
 function getCategoryEmoji(category) {
   return CATEGORY_EMOJIS[category?.toLowerCase()] || "📄";
