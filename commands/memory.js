@@ -167,7 +167,7 @@ function getCategoryColor(category) {
 }
 
 // --- Pagination ---
-const MEMORIES_PER_PAGE = 8;
+const MEMORIES_PER_PAGE = 15;
 
 function paginateMemories(memories, page = 1) {
   const start = (page - 1) * MEMORIES_PER_PAGE;
@@ -446,15 +446,24 @@ module.exports = {
 
     if (!args.length) {
       const filtered = filterMemories(data.memories);
-      const pagination = paginateMemories(filtered);
-      const embed = formatMemoriesPage(data.memories, pagination, 'date');
+
+      const sorted = filtered.sort((a, b) => {
+        const da = getMemoryDateForSorting(a);
+        const db = getMemoryDateForSorting(b);
+        return da - db; 
+      });
+
+      const pagination = paginateMemories(sorted);
+      const embed = formatMemoriesPage(sorted, pagination, 'date');
       const buttons = createNavigationButtons(1, pagination.totalPages, message.author.id, 'date');
-      
+
       return message.channel.send({
         embeds: [embed],
         components: buttons
       });
     }
+  }
+
 
     const sub = args.shift().toLowerCase();
 
