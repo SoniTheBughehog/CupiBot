@@ -171,7 +171,7 @@ function getCategoryColor(category) {
 }
 
 // --- Pagination ---
-const MEMORIES_PER_PAGE = 8;
+const MEMORIES_PER_PAGE = 15;
 
 function paginateMemories(memories, page = 1) {
   const start = (page - 1) * MEMORIES_PER_PAGE;
@@ -235,6 +235,17 @@ function sortMemoriesByDate(memories, newestFirst = true) {
     }
     return newestFirst ? db - da : da - db;
   });
+}
+
+function groupMemoriesByMonth(memories) {
+  const groups = {};
+  for (const m of memories) {
+    const d = getMemoryDateForSorting(m);
+    const label = d.toLocaleString("fr-FR", { month: "long", year: "numeric" });
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(m);
+  }
+  return groups;
 }
 
 // --- Formatage des souvenirs ---
@@ -437,15 +448,35 @@ function getHelpEmbed() {
 module.exports = {
   name: "memory",
   description: "Gère tes souvenirs avec catégories et dates",
-
   async execute(message, args) {
     const data = readMemory();
 
     if (!args.length) {
       const filtered = filterMemories(data.memories);
-      const sorted = sortMemoriesByDate(filtered, false); 
-      const pagination = paginateMemories(sorted);
-      const embed = formatMemoriesPage(sorted, pagination, 'date');
+      const sorted = sortMemoriesByDate(filtered);
+
+      // Grouper par période pour que chaque mois/année reste ensemble
+      const groupedLines = [];
+      const grouped = {};
+      sorted.forEach(memory => {
+        const period = getMemoryPeriodKey(memory);
+        if (!grouped[period]) grouped[period] = [];
+        grouped[period].push(memory);
+      });
+
+      Object.keys(grouped)
+        .sort((a, b) => {
+          const firstA = getMemoryDateForSorting(grouped[a][0]);
+          const firstB = getMemoryDateForSorting(grouped[b][0]);
+          return firstB - firstA; // du plus récent au plus ancien
+        })
+        .forEach(period => {
+          groupedLines.push({ type: 'header', text: period });
+          grouped[period].forEach(mem => groupedLines.push({ type: 'memory', memory: mem }));
+        });
+
+      const pagination = paginateMemories(groupedLines);
+      const embed = formatMemoriesPage(groupedLines, pagination, 'date');
       const buttons = createNavigationButtons(1, pagination.totalPages, message.author.id, 'date');
 
       return message.channel.send({
@@ -468,13 +499,13 @@ module.exports = {
         let category = null;
         let date = null;
         let startIndex = 0;
-        
+
         // Vérifier catégorie entre crochets
         if (args[0]?.startsWith('[') && args[0]?.endsWith(']')) {
           category = args[0].slice(1, -1).toLowerCase();
           startIndex = 1;
         }
-        
+
         // Vérifier date entre crochets
         if (args[startIndex]?.startsWith('[') && args[startIndex]?.endsWith(']')) {
           const dateStr = args[startIndex].slice(1, -1);
@@ -489,7 +520,7 @@ module.exports = {
           }
           startIndex++;
         }
-        
+
         const text = args.slice(startIndex).join(" ").trim();
         if (!text) {
           return message.channel.send({
@@ -509,15 +540,15 @@ module.exports = {
             )],
           });
         }
-        
+
         // Utiliser catégorie par défaut si pas spécifiée
         if (!category) category = "général";
-        
+
         // Ajouter la catégorie si elle n'existe pas
         if (!data.categories.includes(category)) {
           data.categories.push(category);
         }
-        
+
         const newMemory = {
           id: data.nextId++,
           text,
@@ -526,13 +557,13 @@ module.exports = {
           addedBy: message.author.tag,
           createdAt: new Date().toISOString()
         };
-        
+
         data.memories.push(newMemory);
         saveMemory(data);
-        
+
         const emoji = getCategoryEmoji(category);
         const dateStr = date ? ` • 📅 ${formatMemoryDate(date)}` : "";
-        
+
         return message.channel.send({
           embeds: [createEmbed({
             title: `${emoji} Souvenir ajouté`,
@@ -553,7 +584,7 @@ module.exports = {
             )],
           });
         }
-        
+
         const memory = data.memories.find(m => m.id === id);
         if (!memory) {
           return message.channel.send({
@@ -563,7 +594,7 @@ module.exports = {
             )],
           });
         }
-        
+
         const newText = args.slice(1).join(" ").trim();
         if (!newText) {
           return message.channel.send({
@@ -573,14 +604,14 @@ module.exports = {
             )],
           });
         }
-        
+
         const oldText = memory.text;
         memory.text = newText;
         memory.modifiedAt = new Date().toISOString();
         memory.modifiedBy = message.author.tag;
-        
+
         saveMemory(data);
-        
+
         const emoji = getCategoryEmoji(memory.category);
         return message.channel.send({
           embeds: [createEmbed({
@@ -605,7 +636,7 @@ module.exports = {
             )],
           });
         }
-        
+
         const index = data.memories.findIndex(m => m.id === id);
         if (index === -1) {
           return message.channel.send({
@@ -615,10 +646,10 @@ module.exports = {
             )],
           });
         }
-        
+
         const [removed] = data.memories.splice(index, 1);
         saveMemory(data);
-        
+
         const emoji = getCategoryEmoji(removed.category);
         return message.channel.send({
           embeds: [createEmbed({
@@ -633,10 +664,32 @@ module.exports = {
       case "list": {
         const category = args[0];
         const filtered = filterMemories(data.memories, category);
-        const pagination = paginateMemories(filtered);
-        const embed = formatMemoriesPage(filtered, pagination, 'date', category);
+        const sorted = sortMemoriesByDate(filtered);
+
+        // Grouper par période pour que chaque mois/année reste ensemble
+        const groupedLines = [];
+        const grouped = {};
+        sorted.forEach(memory => {
+          const period = getMemoryPeriodKey(memory);
+          if (!grouped[period]) grouped[period] = [];
+          grouped[period].push(memory);
+        });
+
+        Object.keys(grouped)
+          .sort((a, b) => {
+            const firstA = getMemoryDateForSorting(grouped[a][0]);
+            const firstB = getMemoryDateForSorting(grouped[b][0]);
+            return firstB - firstA; // du plus récent au plus ancien
+          })
+          .forEach(period => {
+            groupedLines.push({ type: 'header', text: period });
+            grouped[period].forEach(mem => groupedLines.push({ type: 'memory', memory: mem }));
+          });
+
+        const pagination = paginateMemories(groupedLines);
+        const embed = formatMemoriesPage(groupedLines, pagination, 'date', category);
         const buttons = createNavigationButtons(1, pagination.totalPages, message.author.id, 'date', category);
-        
+
         return message.channel.send({
           embeds: [embed],
           components: buttons
@@ -646,10 +699,27 @@ module.exports = {
       case "listcat": {
         const category = args[0];
         const filtered = filterMemories(data.memories, category);
-        const pagination = paginateMemories(filtered);
-        const embed = formatMemoriesPage(filtered, pagination, 'category', category);
+
+        // Grouper par catégorie
+        const groupedLines = [];
+        const grouped = {};
+        filtered.forEach(memory => {
+          const cat = memory.category || 'général';
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push(memory);
+        });
+
+        Object.keys(grouped)
+          .sort() // ordre alphabétique des catégories
+          .forEach(cat => {
+            groupedLines.push({ type: 'header', text: cat });
+            grouped[cat].forEach(mem => groupedLines.push({ type: 'memory', memory: mem }));
+          });
+
+        const pagination = paginateMemories(groupedLines);
+        const embed = formatMemoriesPage(groupedLines, pagination, 'category', category);
         const buttons = createNavigationButtons(1, pagination.totalPages, message.author.id, 'category', category);
-        
+
         return message.channel.send({
           embeds: [embed],
           components: buttons
