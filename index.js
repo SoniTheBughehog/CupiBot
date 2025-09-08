@@ -96,6 +96,12 @@ client.on("interactionCreate", async (interaction) => {
       await memoryCommand.handleInteraction(interaction);
     }
   }
+  if (interaction.customId?.startsWith('bj_')) {
+    const casinoCommand = client.commands.get('casino');
+    if (casinoCommand?.handleInteraction) {
+      await casinoCommand.handleInteraction(interaction);
+    }
+  }
   // ...
 });
 
