@@ -1,8 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
 
-// Vous devrez ajouter votre clé API OpenWeatherMap dans votre .env
-// OPENWEATHER_API_KEY=your_api_key_here
-
 function createEmbed({
   title,
   description,
