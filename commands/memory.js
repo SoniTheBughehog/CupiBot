@@ -3,20 +3,17 @@ const path = require("path");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 const filePath = path.join(__dirname, "..", "data", "memory.json");
-
-// --- Lecture / écriture ---
+/* --- Lecture / écriture --- */
 function readMemory() {
   if (!fs.existsSync(filePath)) {
     return { memories: [], categories: ["général", "voyage", "travail", "famille", "amis"], nextId: 1 };
   }
   try {
     const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    
     // Migration et initialisation si nécessaire
     if (!data.memories) data.memories = [];
     if (!data.categories) data.categories = ["général", "voyage", "travail", "famille", "amis"];
     if (!data.nextId) data.nextId = Math.max(...data.memories.map(m => m.id || 0), 0) + 1;
-    
     return data;
   } catch {
     return { memories: [], categories: ["général", "voyage", "travail", "famille", "amis"], nextId: 1 };
@@ -27,10 +24,9 @@ function saveMemory(data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-// --- Utilitaires de date ---
+/* --- Utilitaires de date --- */
 function parseMemoryDate(dateStr) {
   if (!dateStr) return null;
-  
   // Format complet JJ/MM/YYYY
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
     const [day, month, year] = dateStr.split("/").map(Number);
@@ -38,7 +34,6 @@ function parseMemoryDate(dateStr) {
       return { type: "full", day, month, year, original: dateStr };
     }
   }
-  
   // Format mois/année MM/YYYY
   if (/^\d{1,2}\/\d{4}$/.test(dateStr)) {
     const [month, year] = dateStr.split("/").map(Number);
@@ -46,7 +41,6 @@ function parseMemoryDate(dateStr) {
       return { type: "month", month, year, original: dateStr };
     }
   }
-  
   // Juste l'année YYYY
   if (/^\d{4}$/.test(dateStr)) {
     const year = Number(dateStr);
@@ -54,18 +48,15 @@ function parseMemoryDate(dateStr) {
       return { type: "year", year, original: dateStr };
     }
   }
-  
   return null;
 }
 
 function formatMemoryDate(dateObj) {
   if (!dateObj) return "Date inconnue";
-  
   const months = [
     "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
     "Juil", "Août", "Sep", "Oct", "Nov", "Déc"
   ];
-  
   switch (dateObj.type) {
     case "full":
       return `${dateObj.day}/${dateObj.month}/${dateObj.year}`;
@@ -86,26 +77,22 @@ function getMemoryDateScore(memory) {
     let year = dateObj.year || new Date().getFullYear();
     let month = dateObj.month || 12; // Si pas de mois, prendre décembre
     let day = dateObj.day || 31; // Si pas de jour, prendre le dernier du mois
-    
     // Ajuster le jour selon le mois pour éviter les dates invalides
     if (!dateObj.day && dateObj.month) {
       const daysInMonth = new Date(year, dateObj.month, 0).getDate();
       day = daysInMonth;
     }
-    
     return new Date(year, month - 1, day).getTime();
   }
-  
   // Fallback sur la date de création si pas de date de souvenir
   if (memory.createdAt) {
     return new Date(memory.createdAt).getTime();
   }
-  
   // Dernier fallback sur l'ID
   return memory.id || 0;
 }
 
-// --- Embeds ---
+/* --- Embeds --- */
 function createEmbed({ title, description, color = 0x3498db, footer, fields = [] }) {
   const embed = new EmbedBuilder()
     .setTitle(title)
@@ -125,7 +112,7 @@ function createErrorEmbed(title, description) {
   });
 }
 
-// --- Catégories ---
+/* --- Catégories --- */
 const CATEGORY_EMOJIS = {
   "général": "📝",
   "amour": "❤️",
@@ -137,7 +124,6 @@ const CATEGORY_EMOJIS = {
   "humour": "😂",
   "émotions fortes": "🥹"
 };
-
 
 function getCategoryEmoji(category) {
   return CATEGORY_EMOJIS[category?.toLowerCase()] || "📄";
@@ -159,14 +145,13 @@ function getCategoryColor(category) {
   return colors[category?.toLowerCase()] || 0x3498db;
 }
 
-// --- Pagination ---
+/* --- Pagination --- */
 const MEMORIES_PER_PAGE = 8;
 
 function paginateMemories(memories, page = 1) {
   const start = (page - 1) * MEMORIES_PER_PAGE;
   const end = start + MEMORIES_PER_PAGE;
   const totalPages = Math.ceil(memories.length / MEMORIES_PER_PAGE);
-  
   return {
     memories: memories.slice(start, end),
     currentPage: page,
@@ -178,9 +163,7 @@ function paginateMemories(memories, page = 1) {
 
 function createNavigationButtons(currentPage, totalPages, userId, sortBy = 'date', category = null, search = null) {
   if (totalPages <= 1) return [];
-  
   const row = new ActionRowBuilder();
-  
   if (currentPage > 1) {
     row.addComponents(
       new ButtonBuilder()
@@ -189,7 +172,6 @@ function createNavigationButtons(currentPage, totalPages, userId, sortBy = 'date
         .setStyle(ButtonStyle.Primary)
     );
   }
-  
   row.addComponents(
     new ButtonBuilder()
       .setCustomId(`memory_page_${userId}`)
@@ -197,7 +179,6 @@ function createNavigationButtons(currentPage, totalPages, userId, sortBy = 'date
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true)
   );
-  
   if (currentPage < totalPages) {
     row.addComponents(
       new ButtonBuilder()
@@ -206,16 +187,14 @@ function createNavigationButtons(currentPage, totalPages, userId, sortBy = 'date
         .setStyle(ButtonStyle.Primary)
     );
   }
-  
   return [row];
 }
 
-// --- Tri des souvenirs ---
+/* --- Tri des souvenirs --- */
 function sortMemoriesByDate(memories, newestFirst = true) {
   return [...memories].sort((a, b) => {
     const da = getMemoryDateForSorting(a).getTime();
     const db = getMemoryDateForSorting(b).getTime();
-
     if (da === db) {
       // tie-breaker avec createdAt si même date
       const ca = new Date(a.createdAt || 0).getTime();
@@ -226,64 +205,21 @@ function sortMemoriesByDate(memories, newestFirst = true) {
   });
 }
 
-// --- Formatage des souvenirs ---
-function formatMemoriesByDate(memories) {
-  if (!memories || memories.length === 0) return "";
-  
-  const sortedMemories = sortMemoriesByDate([...memories]);
-  const groupedByPeriod = {};
-  
-  sortedMemories.forEach(memory => {
-    const periodKey = getMemoryPeriodKey(memory);
-    if (!groupedByPeriod[periodKey]) {
-      groupedByPeriod[periodKey] = [];
-    }
-    groupedByPeriod[periodKey].push(memory);
-  });
-  
-  const sections = [];
-  Object.keys(groupedByPeriod).forEach(period => {
-    const periodMemories = groupedByPeriod[period];
-    const memoriesText = periodMemories.map(memory => {
-      const emoji = getCategoryEmoji(memory.category);
-      const dateStr = memory.date ? formatMemoryDate(memory.date) : "";
-      const dateDisplay = dateStr && dateStr !== period ? ` • ${dateStr}` : "";
-      return `${emoji} ${memory.category}${dateDisplay} - ${memory.text}`;
-    }).join("\n");
-    
-    sections.push(`**${period}**\n${memoriesText}`);
-  });
-  
-  return sections.join("\n\n");
-}
-
-function formatMemoriesByCategory(memories) {
-  if (!memories || memories.length === 0) return "";
-  
-  const sortedMemories = sortMemoriesByCategory([...memories]);
-  const groupedByCategory = {};
-  
-  sortedMemories.forEach(memory => {
-    const category = memory.category || 'général';
-    if (!groupedByCategory[category]) {
-      groupedByCategory[category] = [];
-    }
-    groupedByCategory[category].push(memory);
-  });
-  
-  const sections = [];
-  Object.keys(groupedByCategory).sort().forEach(category => {
-    const categoryMemories = groupedByCategory[category];
-    const emoji = getCategoryEmoji(category);
-    const memoriesText = categoryMemories.map(memory => {
-      const dateStr = memory.date ? formatMemoryDate(memory.date) : "Sans date";
-      return `${dateStr} - ${memory.text}`;
-    }).join("\n");
-    
-    sections.push(`**${emoji} ${category}**\n${memoriesText}`);
-  });
-  
-  return sections.join("\n\n");
+function getMemoryDateForSorting(memory) {
+  if (!memory.date) return new Date(0);
+  const y = Number(memory.date.year || 0);
+  const m = Number((memory.date.month || 1)) - 1;
+  const d = Number(memory.date.day || 1);
+  switch (memory.date.type) {
+    case "full":
+      return new Date(y, m, d);
+    case "month":
+      return new Date(y, m, 1);
+    case "year":
+      return new Date(y, 0, 1);
+    default:
+      return new Date(0);
+  }
 }
 
 function formatMemoriesPage(memories, pagination, sortBy = 'date', category = null, search = null) {
@@ -293,16 +229,13 @@ function formatMemoriesPage(memories, pagination, sortBy = 'date', category = nu
       : category 
         ? `Aucun souvenir dans la catégorie "${category}"`
         : "Aucun souvenir enregistré pour l'instant.";
-    
     return createEmbed({
       title: "📭 Aucun souvenir",
       description: emptyMessage + "\n\n💡 Ajoute un souvenir avec : `!memory add [catégorie] [date] <texte>`",
       color: 0x95a5a6,
     });
   }
-
   const { memories: pageMemories, currentPage, totalPages } = pagination;
-  
   let title = "📚 Tes souvenirs";
   if (search) {
     title = `🔍 Recherche : "${search}"`;
@@ -310,29 +243,22 @@ function formatMemoriesPage(memories, pagination, sortBy = 'date', category = nu
     const emoji = getCategoryEmoji(category);
     title = `${emoji} Souvenirs - ${category}`;
   }
-  
   const sortIcon = sortBy === 'category' ? '📂' : '📅';
-  const sortText = sortBy === 'category' ? 'par catégorie' : 'par date';
   title += ` ${sortIcon}`;
-  
   if (totalPages > 1) {
     title += ` (Page ${currentPage}/${totalPages})`;
   }
-
   const description = pageMemories.map((memory, index) => {
     const emoji = getCategoryEmoji(memory.category);
     const dateStr = memory.date ? formatMemoryDate(memory.date) : "Sans date";
     const categoryBadge = `${emoji} **${memory.category}**`;
     const dateBadge = ` • 📅 ${dateStr}`;
     const idBadge = ` • ID: ${memory.id}`;
-    
     return `${categoryBadge}${dateBadge}${idBadge}\n**${memory.text}**`;
   }).join("\n\n");
-
   const statsText = totalPages > 1 
     ? `Page ${currentPage}/${totalPages} • ${memories.length} souvenirs au total • Triés par date (récent → ancien)`
     : `${memories.length} souvenir${memories.length > 1 ? 's' : ''} au total • Triés par date`;
-
   return createEmbed({
     title,
     description,
@@ -341,14 +267,12 @@ function formatMemoriesPage(memories, pagination, sortBy = 'date', category = nu
   });
 }
 
-// --- Filtrage et tri ---
+/* --- Filtrage et tri --- */
 function filterMemories(memories, category = null, search = null) {
   let filtered = [...memories];
-  
   if (category && category !== 'all') {
     filtered = filtered.filter(m => m.category?.toLowerCase() === category.toLowerCase());
   }
-  
   if (search && search !== 'none') {
     const searchLower = search.toLowerCase();
     filtered = filtered.filter(m => 
@@ -356,35 +280,29 @@ function filterMemories(memories, category = null, search = null) {
       m.category?.toLowerCase().includes(searchLower)
     );
   }
-  
   // Tri par date décroissante (plus récent en premier)
   // Utilise la date du souvenir en priorité, puis la date de création
   filtered.sort((a, b) => {
     const scoreA = getMemoryDateScore(a);
     const scoreB = getMemoryDateScore(b);
-    
     // Ordre décroissant (plus récent en premier)
     return scoreB - scoreA;
   });
-  
   return filtered;
 }
 
-// --- Affichage des catégories ---
+/* --- Affichage des catégories --- */
 function getCategoriesEmbed(data) {
   const categoryCounts = {};
-  
   data.memories.forEach(memory => {
     const cat = memory.category || 'général';
     categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
   });
-  
   const categoryList = data.categories.map(cat => {
     const count = categoryCounts[cat] || 0;
     const emoji = getCategoryEmoji(cat);
     return `${emoji} **${cat}** (${count})`;
   }).join("\n");
-  
   return createEmbed({
     title: "📂 Catégories disponibles",
     description: [
@@ -402,7 +320,7 @@ function getCategoriesEmbed(data) {
   });
 }
 
-// --- Aide ---
+/* --- Aide --- */
 function getHelpEmbed() {
   return createEmbed({
     title: "📖 Guide d'utilisation - Memory Bot",
