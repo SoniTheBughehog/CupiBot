@@ -15,8 +15,8 @@ class CasinoBot {
 
     loadPlayersData() {
         try {
-            if (fs.existsSync('./casino_players.json')) {
-                return JSON.parse(fs.readFileSync('./casino_players.json', 'utf8'));
+            if (fs.existsSync('../data/casino_players.json')) {
+                return JSON.parse(fs.readFileSync('../data/casino_players.json', 'utf8'));
             }
         } catch (error) {
             console.log('Erreur de chargement des données:', error);
@@ -26,7 +26,7 @@ class CasinoBot {
 
     savePlayersData() {
         try {
-            fs.writeFileSync('./casino_players.json', JSON.stringify(this.playersData, null, 2));
+            fs.writeFileSync('../data/casino_players.json', JSON.stringify(this.playersData, null, 2));
         } catch (error) {
             console.log('Erreur de sauvegarde:', error);
         }
