@@ -76,7 +76,7 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// --- Interaction handler ---
+/// --- Interaction handler ---
 client.on("interactionCreate", async (interaction) => {
   if (interaction.customId?.startsWith('note_')) {
     const noteCommand = client.commands.get('note');
@@ -96,13 +96,18 @@ client.on("interactionCreate", async (interaction) => {
       await memoryCommand.handleInteraction(interaction);
     }
   }
-  if (interaction.customId?.startsWith('bj_')) {
+  // AJOUTEZ CECI pour le casino
+  if (interaction.customId?.startsWith('bj_') || 
+      interaction.customId?.startsWith('join_roulette_') ||
+      interaction.customId?.startsWith('info_roulette_') ||
+      interaction.customId?.startsWith('join_blackjack_') ||
+      interaction.customId?.startsWith('start_blackjack_') ||
+      interaction.isModalSubmit() && interaction.customId?.startsWith('roulette_join_')) {
     const casinoCommand = client.commands.get('casino');
     if (casinoCommand?.handleInteraction) {
       await casinoCommand.handleInteraction(interaction);
     }
   }
-  // ...
 });
 
 // --- Login avec retry ---

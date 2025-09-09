@@ -91,6 +91,17 @@ module.exports = {
           ]),
           inline: false,
         },
+        {
+          name: "🎰 Commandes Casino",
+          value: formatCommands([
+            "!casino daily — Obtenir ton bonus quotidien",
+            "!casino profil — Voir vos statistiques",
+            "!casino slots <mise> — Jouer aux machines à sous (mise: 1-100 jetons)",
+            "!casino roulette <solo?> <mise> <choix> — Jouer à la roulette (choix: rouge, noir, pair, impair, 0-36; mise: 1-200 jetons)",
+            "!casino blackjack <solo?> <joueurs?> <mise> — Jouer au blackjack (mise: 1-150 jetons)",
+          ]),
+          inline: false,
+        }
       ],
       footer: `Demandé par ${message.author.tag}`,
     });
